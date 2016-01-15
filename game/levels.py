@@ -18,18 +18,22 @@ class Level(object):
 
     def __init__(self, world):
         self.world = world
+        self.log = { }
         self.player = None
         self.stage = None
         self.foreground_layers = []
         self.background_layers = []
 
         self.camera = peachy.utils.Camera(320, 240)
+        self.camera.max_width = 320
+        self.camera.max_height = 240
 
     def startup(self):
         return
     
     def exit(self):
-        self.stage.clear()
+        if self.stage:
+            self.stage.clear()
         self.world = None
         del self.stage
         del self.player
@@ -264,6 +268,31 @@ class Level02(Level):
     def startup(self):
         self.player = Player(152, 0)
         self.load_stage('assets/sewer_01.tmx')
+
+
+class LightingTest(Level):
+
+    def __init__(self, world):
+        Level.__init__(self, world)
+        self.world = world
+
+    def startup(self):
+        self.player = Player(0, 0)
+        self.player.change_gadget('INVISIBLE')
+        self.world.entities.add(self.player)
+
+        # sold = self.world.entities.add(Soldier(100, 0))
+        self.world.entities.add(Solid(150, 150, 10, 10)).visible = True
+        self.world.entities.add(Solid(0, 200, 320, 32)).visible = True
+        self.light = soldier.SoldierLight(None)
+
+    def render(self):
+        Level.render(self)
+        self.light.render()
+
+    def update(self):
+        Level.update(self)
+        self.light.update()
         
 
 class TestLevel(Level):

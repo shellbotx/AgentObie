@@ -31,6 +31,8 @@ class GameWorld(peachy.World):
     def change_level(self, level_name):
         if level_name == 'TEST':
             self.level = TestLevel(self)
+        elif level_name == 'LIGHTING':
+            self.level = LightingTest(self)
         elif level_name == 'LEVEL_01':
             self.level = Level01(self)
         elif level_name == 'LEVEL_02':

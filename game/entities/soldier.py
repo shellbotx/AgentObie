@@ -1,3 +1,5 @@
+import math
+
 import peachy
 from game.utility import collision_resolution, solid_below, Rect
 
@@ -97,7 +99,7 @@ class Soldier(peachy.Entity):
 
         player = self.container.get_name('player')
         player_visible = self.check_LOS(player)
-        distance_from_player = abs(player.x - self.x)
+        distance_from_player = self.distance_from(player)
         
         if player.invisible:
             player_visible = False
@@ -139,7 +141,6 @@ class Soldier(peachy.Entity):
                         self.velocity_x = Soldier.SPEED_ALERT * self.facing_x
                 else:
                     self.velocity_x = 0
-                    self.facing_x *= -1
 
         elif self.state == Soldier.STATE_STUNNED:
             self.stun_timer -= 1
@@ -147,14 +148,14 @@ class Soldier(peachy.Entity):
                 self.stun_timer = 0
                 self.state = Soldier.STATE_PATROL
 
+        if self.velocity_y < MAX_GRAVITY:
+            self.velocity_y += GRAVITY
+
         temp_x += self.velocity_x
         temp_y += self.velocity_y
 
         c, self.x, self.y, self.velocity_x, self.velocity_y = \
             collision_resolution(self, temp_x, temp_y)
-
-        if c:
-            self.facing_x *= -1
 
     def GADGET_slow(self):
         self.slowed = True
@@ -165,6 +166,101 @@ class Soldier(peachy.Entity):
     def GADGET_revert(self):
         self.slowed = False
 
+
+class SoldierLight(peachy.Entity):
+
+    def __init__(self, parent):
+        # self.parent = parent
+        self.facing_x = -1
+        # self.x = parent.x
+        # self.y = parent.y
+        self.x = 200
+        self.y = 180
+        self.width = 1
+        self.height = 1
+    
+    def render(self):
+        player = peachy.PC.world.level.player
+
+        points = []
+        self.parent = peachy.PC.world.level.player
+        solids = self.parent.container.get_group('solid')
+        solids.append(player)
+        MAX_LENGTH = 64.0
+
+        x = self.x
+        y = self.y
+        
+        points.append((self.x, self.y))
+        for angle in xrange(0, 361, 3):
+            length = MAX_LENGTH
+            rad = math.radians(angle)
+            dx = math.cos(rad)
+            dy = math.sin(rad)
+            rdx = dx * length
+            rdy = dy * length
+
+            for solid in solids:
+                segments = [
+                    [solid.x, solid.y, -solid.width, 0],
+                    [solid.x + solid.width, solid.y, 0, solid.height],
+                    [solid.x + solid.width, solid.y + solid.height, solid.width, 0],
+                    [solid.x, solid.y + solid.height, 0, -solid.height]
+                ]
+
+                for segment in segments:
+                    sx = segment[0]
+                    sy = segment[1]
+                    sdx = segment[2]
+                    sdy = segment[3]
+
+                    # Are the lines parallel? If so, there is no intersection
+                    r_mag = math.sqrt(rdx * rdx + rdy * rdy)
+                    s_mag = math.sqrt(sdx * sdx + sdy * sdy)
+                    # r_mag = math.sqrt(rdx**2 + rdy**2)
+                    # s_mag = math.sqrt(sdx**2 + sdy**2)
+
+                    if (abs(rdx / r_mag) != abs(sdx / s_mag)) or \
+                       (abs(rdy / r_mag) != abs(sdy / s_mag)):
+
+                        T2 = (rdx * (sy - y) + rdy * (x - sx)) / (sdx * rdy - sdy * rdx)
+                        T1 = None
+
+                        if rdx == 0:
+                            T1 = (sy + sdy * T2 - y) / rdy
+                        else:
+                            T1 = (sx + sdx * T2 - x) / rdx
+
+                        if T1 >= 0 and T1 <= 1 and T2 >= 0 and T2 <= 1:
+                            if T1 * MAX_LENGTH < length:
+                                length = T1 * length
+            points.append((x + dx * length, y + dy * length))
+
+        peachy.graphics.set_color(255, 255, 0, 50)
+        peachy.graphics.draw_polygon(points)
+
+    def update(self):
+
+        player = peachy.PC.world.level.player
+        if player and player.state != Player.STATE_HIDDEN:
+            distance = self.distance_from_point(player.x + player.width / 2,
+                                                player.y + player.height / 2)
+
+            if distance <= 64:
+                # calculate angle
+                dx = player.x - self.x
+                dy = player.y - self.y
+                angle = math.degrees( math.atan2(dy, dx) )
+                if angle < 0:
+                    angle = 360 + angle
+
+                player_in_sight = False
+                if self.facing_x == 1 and (angle >= 330 or angle <= 30) or \
+                   self.facing_x == -1 and (150 <= angle <= 210):
+                    player_in_sight = True # TODO
+                
+                if player_in_sight:
+                    i = 0
 
 class SoldierBullet(peachy.Entity):
 

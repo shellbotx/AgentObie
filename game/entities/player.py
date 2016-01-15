@@ -17,7 +17,7 @@ class Player(peachy.Entity):
     STATE_CLIMBING = 'climb'
     STATE_CROUCHING = 'crouch'
     STATE_DEAD = 'dead'
-    STATE_HIDING = 'hidden'
+    STATE_HIDDEN = 'hidden'
     STATE_LEDGEGRAB = 'ledge-grab'
     STATE_PUSHING = 'push'
     
@@ -92,7 +92,7 @@ class Player(peachy.Entity):
             self.velocity_x = 0
             self.velocity_y = 0
 
-        elif state == Player.STATE_HIDING:
+        elif state == Player.STATE_HIDDEN:
             hiding_spot = kwargs['hiding_spot']
 
             if self.x < hiding_spot.x:
@@ -255,7 +255,7 @@ class Player(peachy.Entity):
                             interact.pull()
                         
                         elif interact.member_of('hiding-spot'):
-                            self.change_state(Player.STATE_HIDING, hiding_spot=interact)
+                            self.change_state(Player.STATE_HIDDEN, hiding_spot=interact)
                             return
                         
                         elif interact.member_of('message-box'):
@@ -386,7 +386,7 @@ class Player(peachy.Entity):
             else:
                 self.state = Player.STATE_STANDARD
 
-        elif self.state == Player.STATE_HIDING:
+        elif self.state == Player.STATE_HIDDEN:
             if keypressed_up or keypressed_left or keypressed_right:
                 self.change_state(Player.STATE_STANDARD)
 
