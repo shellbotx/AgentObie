@@ -1,134 +1,268 @@
-import collections
+import os
 
-import peachy 
-from peachy import PC
+import peachy
+from peachy import PC, Scene
 
-PLACE_ACTOR = 'place_actor'
-WAIT = 'wait'
+import game.utility
+import game.entities
+from game.entities import *
 
-class Scene(object):
+class AgentObieScene(Scene):
 
-    def __init__(self):
-        self.actors = {}
-        self.directions = collections.deque()
-        self.create()
+    def __init__(self, world):
+        super(AgentObieScene, self).__init__(world)
 
-        self.current_direction = None
-        self.direction_timer = 0
+        self.player = None
+        self.stage = None
+        self.foreground_layers = []
+        self.background_layers = []
 
-    def render(self):
-        for _, actor in self.actors.iteritems():
-            if not actor.hidden:
-                actor.render()
+        self.camera = peachy.utils.Camera(320, 240)
+        self.camera.max_width = 320
+        self.camera.max_height = 240
 
-    def update(self):
+    def exit(self):
+        if self.stage:
+            self.stage.clear()
+        self.entities.clear()
+        self.world = None
+        del self.stage
+        del self.player
+        del self.foreground_layers
+        del self.background_layers
 
-        end_turn = False
+    def load_tmx(self, path):
+        stage = peachy.utils.Stage.load_tiled(path)
+        previous_stage = ''
 
-        while not end_turn and len(self.directions) > 0:
+        stage.name = os.path.basename(stage.path)[:-4]
 
-            direction = self.directions[0]
+        if self.stage:
+            previous_stage = os.path.basename(self.stage.path)
+        if self.player is None:
+            self.player = Player(0, 0)
+        
+        self.entities.clear()
 
-            if direction[0] == PLACE_ACTOR:
-                actor = self.actors[direction[1]]
-                actor.x = int(direction[2])
-                actor.y = int(direction[3])
+        for OBJ in stage.objects:
+            obj = self.load_stage_OBJ(OBJ, stage, previous_stage)
 
-                if actor.hidden:
-                    actor.hidden = False
-                
-                self.directions.popleft()
+            if obj is not None:
+                if 'NAME' in OBJ.properties:
+                    obj.name = OBJ.properties['NAME']
+                self.entities.add(obj)
 
-            elif direction[0] == WAIT:
-                self.direction_timer += 1
+        # Add player last so they are on the top of the render queue
+        self.entities.add(self.player)
 
-                print self.direction_timer
+        # TODO sort based on z-level
 
-                if self.direction_timer <= int(direction[1]):
-                    end_turn = True
-                else:
-                    self.direction_timer = 0
-                    self.directions.popleft()
+        self.foreground_layers = []
+        self.background_layers = []
+        for layer in stage.layers:
+            layer_type = layer.name[:10]
+            if layer_type == 'FOREGROUND':
+                self.foreground_layers.append(layer)
+            elif layer_type == 'BACKGROUND':
+                self.background_layers.append(layer)
 
-            if not self.directions:
-                # TODO exit scene
-                print 'wait'
-                self.add_direction(WAIT, 10)
-                end_turn = True
+        self.camera.max_width = stage.width
+        self.camera.max_height = stage.height
 
+        self.stage = stage
+
+    def load_stage_OBJ(self, OBJ, stage, previous_stage):
+        '''
+        Loading stages is split into two functions to allow for easier level
+        overrides
+        '''
+
+        if OBJ.group == 'SOLID':
+            return Solid(OBJ.x, OBJ.y, OBJ.w, OBJ.h)
+
+        elif OBJ.name == 'CHANGE_LEVEL':
+            link = OBJ.properties['LINK']
+            return LevelChangeTrigger(OBJ.x, OBJ.y, OBJ.w, OBJ.h, link)
+
+        elif OBJ.name == 'CHANGE_STAGE':
+            link = OBJ.properties['LINK']
+
+            continous = False
+            try:
+                continuous = bool(OBJ.properties['CONTINUOUS'])
+            except KeyError:
+                pass
+
+            if link == previous_stage:
+                sx = OBJ.x
+                sy = OBJ.y
+                # TODO if continuous:
+
+                if OBJ.x < 0:
+                    sx = 0
+                elif OBJ.x >= stage.width:
+                    sx = stage.width - Player.WIDTH
+                if OBJ.y < 0:
+                    sy = 0
+                elif OBJ.y > stage.height:
+                    sy = stage.height - Player.HEIGHT
+                self.player.x = sx
+                self.player.y = sy
+
+            return StageChangeTrigger(OBJ.x, OBJ.y, OBJ.w, OBJ.h, link)
+        elif OBJ.name == 'DOOR':
+            link = OBJ.properties['LINK']
+            if link == previous_stage:
+                self.player.x = OBJ.x
+                self.player.y = OBJ.y
+            return Door(OBJ.x, OBJ.y, link)
+        elif OBJ.name == 'GADGET_INVISIBLE' or \
+             OBJ.name == 'GADGET_STUN' or \
+             OBJ.name == 'GADGET_TIME':
+            gadget_type = OBJ.name[7:]
+            return GadgetPickup(OBJ.x, OBJ.y, gadget_type)
+        elif OBJ.name == 'HIDING_SPOT':
+            return HidingSpot(OBJ.x, OBJ.y, OBJ.w, OBJ.h)
+        elif OBJ.name == 'KEY':
+            link = OBJ.properties['LINK']
+            return Key(OBJ.x, OBJ.y, link)
+        elif OBJ.name == 'LOCKED_DOOR':
+            link = OBJ.properties['LINK']
+            return  LockedDoor(OBJ.x, OBJ.y, OBJ.w, OBJ.h, link)
+        elif OBJ.name == 'LEVER':
+            on_pull = ''
+            lock = False
+
+            try:
+                on_pull = OBJ.properties['ON_PULL']
+            except KeyError:
+                pass
+            try:
+                lock = OBJ.properties['LOCK']
+            except KeyError:
+                pass
+
+            return Lever(OBJ.x, OBJ.y, on_pull, lock)
+        elif OBJ.name == 'BLOCK' or OBJ.name == 'PUSH_BLOCK':
+            return PushBlock(OBJ.x, OBJ.y)
+        elif OBJ.name == 'MESSAGE_BOX':
+            message = OBJ.properties['MESSAGE']
+            return MessageBox(OBJ.x, OBJ.y, message)
+        elif OBJ.name == 'RETRACT':
+            return RetractableDoor(OBJ.x, OBJ.y, OBJ.w, OBJ.h)
+        elif OBJ.name == 'ROPE' or OBJ.name == 'LADDER':
+            return Rope(OBJ.x, OBJ.y, OBJ.w, OBJ.h)
+        elif OBJ.name == 'SHOW_MESSAGE':
+            message = OBJ.properties['MESSAGE']
+            return MessageTrigger(OBJ.x, OBJ.y, OBJ.w, OBJ.h, message)
+        elif OBJ.name == 'SOLDIER':
+            stationary = False
+            try:
+                stationary = bool(OBJ.properties['STATIONARY'])
+            except KeyError:
+                pass
+        
+            soldier = Soldier(OBJ.x, OBJ.y, stationary)
+
+            try:
+                facing = OBJ.properties['FACING']
+                if facing == 'LEFT':
+                    soldier.facing_x = -1
+                elif facing == 'RIGHT':
+                    soldier.facing_x = 1
+            except KeyError:
+                pass
+            return soldier
     
-    def add_actor(self, name, actor):
-        self.actors[name] = actor
+    def update(self):
+        if peachy.utils.Input.pressed('up'):
+            doors = self.player.collides_group('door')
+            try:
+                self.load_stage('assets/' + doors[0].link)
+                return
+            except IndexError:
+                pass
 
-    def add_direction(self, *args):
-        try:
-            direction = args[0]
-            
-            if direction == PLACE_ACTOR:
-                actor = args[1]
-                x = args[2]
-                y = args[3]
-
-            elif direction == WAIT:
-                wait_time = args[1]
-
-            elif direction == 'start_level':
-                level_name = args[1]
-
-        except IndexError:
-            print '[ERROR] Invalid stage direction: {0}'.format(args)
-            raise
-
-        self.directions.append(args)
-
-
-class TestScene(Scene):
-
-    def __init__(self):
-        Scene.__init__(self)
-
-    def create(self):
-        # Actors
-        self.add_actor('obie', Obie())
+            message_box = self.player.collides_group('message-box')
+            if message_box:
+                # Cannot use GameWorld because of ImportError
+                self.world.state = 'message'  
+                self.world.message = message_box[0]
+                return
         
-        # Directions
-        self.add_direction(PLACE_ACTOR, 'obie', 100, 100)
-        self.add_direction(WAIT, PC.fps * 3)
+        triggered = self.player.collides_group('trigger')
+        if triggered:
+            trigger = triggered[0]
+            if trigger.member_of('stage-change'):
+                self.load_stage('assets/' + trigger.link)
+            elif trigger.member_of('level-change'):
+                self.world.change_level(trigger.link)
+            elif trigger.member_of('message'):
+                self.world.state = 'message'
+                self.world.message = trigger
+            return
 
-        self.add_direction(PLACE_ACTOR, 'obie', 200, 200)
-        self.add_direction(WAIT, PC.fps * 3)
-
-        # self.direction(DISPLAY_MESSAGE, 'This is a test message')
-        # self.add_direction(START_LEVEL, 'TEST')
-
+        self.entities.update()
+    
+    def render(self):
+        self.camera.snap(self.player.x, self.player.y, True)
+        self.camera.translate()
         
-class Actor(object):
-    def __init__(self, image_path=''):
-        if image_path:
-            self.image = peachy.assets.get_image(image_path)
-        else:
-            self.image = None
+        for layer in self.background_layers:
+            self.stage.render_layer(layer)
 
-        self.x = 0
-        self.y = 0
-        self.hidden = True
+        self.entities.render()
+
+        for layer in self.foreground_layers:
+            self.stage.render_layer(layer)
+
+
+class LightingTest(AgentObieScene):
+
+    def __init__(self, world):
+        super(AgentObieScene, self).__init__(self, world)
+        self.world = world
+
+    def startup(self):
+        self.player = Player(0, 0)
+        self.player.change_gadget('INVISIBLE')
+        self.entities.add(self.player)
+
+        # sold = self.entities.add(Soldier(100, 0))
+        self.entities.add(Solid(150, 150, 10, 10)).visible = True
+        self.entities.add(Solid(0, 200, 320, 32)).visible = True
+        self.light = soldier.SoldierLight(None)
 
     def render(self):
-        peachy.graphics.draw_image(self.image, self.x, self.y)
+        super().render(self)
+        self.light.render()
 
     def update(self):
-        return
+        super().update(self)
+        self.light.update()
+        
 
+class TestScene(AgentObieScene):
 
-class Obie(Actor):
-    def __init__(self):
-        Actor.__init__(self)#, 'assets/obie.png')
+    def __init__(self, world):
+        AgentObieScene.__init__(self, world)
+        self.world = world
 
-        # sprites = peachy.graphics.SpriteMap(self.image, 16, 16)
-        # self.sprite.add('IDLE', [0], origin=os)
-
-        # self.sprite.play('IDLE')
+    def load_stage(self, path):
+        super().load_stage(self, path)
+        for e in self.entities:
+            if e.member_of('solid'):
+                e.visible = True
+        self.player.change_gadget('TIME')
+        # self.entities.add(MessageBox(4, 184, 'TEST MESSAGE'))
 
     def render(self):
-        peachy.graphics.set_color(0, 0, 255)
-        peachy.graphics.draw_rect(self.x, self.y, 10, 10)
+        peachy.graphics.set_color_hex('#000055')
+
+        for x in xrange(-9, PC.width / 2, 16):
+            peachy.graphics.draw_line(x, 0, x, PC.height / 2)
+        for y in xrange(-8, PC.height / 2, 16):
+            peachy.graphics.draw_line(0, y, PC.width, y)
+
+        super().render(self)
+

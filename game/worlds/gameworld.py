@@ -15,43 +15,23 @@ class GameWorld(peachy.World):
         peachy.World.__init__(self, GameWorld.NAME)
 
         self.state = GameWorld.STATE_PLAY
-        self.level = None
-
-        # self.change_level('TEST')
-        # self.level.load_stage('assets/test.tmx')
-        # self.change_level('LEVEL_01')
-        # self.change_level('SEWER')
+        self.scene = None
 
         self.context = peachy.graphics.Surface((320, 240))
 
     def close(self):
-        self.entities.clear()
-        self.level.exit()
+        self.scene.exit()
 
-    def change_level(self, level_name):
-        if level_name == 'TEST':
-            self.level = TestLevel(self)
-        elif level_name == 'LIGHTING':
-            self.level = LightingTest(self)
-        elif level_name == 'LEVEL_01':
-            self.level = Level01(self)
-        elif level_name == 'LEVEL_02':
-            self.level = Level02(self)
-        else:
-            raise RuntimeWarning('LEVEL NOT FOUND: ' + level_name)
-
-        self.level.startup()
-
-    def play_scene(self, scene_name):
-        if scene_name == 'TEST_SCENE':
-            self.scene.enter(Scene01())
+    def play_scene(self, scene):
+        self.scene = scene
+        self.scene.load()
 
     def render(self):
         peachy.graphics.set_context(self.context)
         peachy.graphics.set_color(0, 0, 0)
         peachy.graphics.draw_rect(*self.context.get_rect())
 
-        self.level.render()
+        self.scene.render()
 
         if self.state == GameWorld.STATE_PAUSED:
             peachy.graphics.set_color(0, 0, 0)
@@ -78,7 +58,8 @@ class GameWorld(peachy.World):
             PC.engine.fullscreen()
 
         if self.state == GameWorld.STATE_PLAY:
-            self.level.update()
+            self.scene.update()
+
             if peachy.utils.Input.pressed('p'):
                 self.state = GameWorld.STATE_PAUSED
         elif self.state == GameWorld.STATE_PAUSED:

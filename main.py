@@ -1,6 +1,7 @@
 import sys
 from peachy import PC
 from game import AgentObieEngine
+from game.scenes.pier import PierScene
 
 if __name__ == "__main__":
     debug = False
@@ -12,5 +13,5 @@ if __name__ == "__main__":
         pass
 
     game = AgentObieEngine(debug)
-    game.world.change_level('LEVEL_01')
+    game.world.play_scene(PierScene(game.world))
     game.run()
