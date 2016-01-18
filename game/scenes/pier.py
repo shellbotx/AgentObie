@@ -1,5 +1,5 @@
 from game.scenes import AgentObieScene
-from game.entities import Player
+from game.entities import Player, Lift
 
 class PierScene(AgentObieScene):
 
