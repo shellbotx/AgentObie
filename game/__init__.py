@@ -10,14 +10,6 @@ class AgentObieEngine(peachy.Engine):
         self.add_world(MainWorld())
         self.add_world(CinemaWorld())
 
-    def play_scene(self, name):
-        self.change_world(GameWorld)
-        self.world.change_scene(name)
-
-#def enter_level(self, level_name):
-#    self.change_world(GameWorld.NAME)
-#    self.world.change_level(level_name)
-    
     def exit(self):
         for world in self.worlds.value():
             self.world.close()

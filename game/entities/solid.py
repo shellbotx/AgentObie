@@ -9,18 +9,18 @@ class Solid(peachy.Entity):
         self.height = height
         self.solid = True
         self.visible = False
+        
         self.segments = []
+        self.refresh_segments()
 
     def render(self):
         peachy.graphics.color = (255, 255, 255)
         peachy.graphics.draw_rect(self.x, self.y, self.width, self.height)
 
-    def create_segments(self):
-        segments = []
-        segments.append(self.x, self.y, -self.width, 0)
-        segments.append(self.x + self.width, self.y, 0, self.height)
-        segments.append(self.x + self.width, self.y + self.height, self.width, 0)
-        segments.append(self.x, self.y + self.height, 0, -self.height)
-
-        self.segments = segments
-        return segments
+    def refresh_segments(self):
+        self.segments = [
+            [self.x, self.y, self.width, 0], 
+            [self.x + self.width, self.y, 0, self.height], 
+            [self.x + self.width, self.y + self.height, -self.width, 0], 
+            [self.x, self.y + self.height, 0, -self.height]
+        ]

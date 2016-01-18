@@ -1,20 +1,56 @@
 import math
 
 import peachy
-from game.utility import collision_resolution, solid_below, Rect
+from peachy import PC
+
+from game.utility import collision_resolution, get_line_segments, \
+                         line_line_collision, raycast, solid_below
 
 from player import Player
 
 GRAVITY = 0.2
 MAX_GRAVITY = 9
 
+def angle_from_facing(fx, fy):
+    if fx == 1 and fy == -1:
+        return 30
+    if fx ==-1 and fy ==-1:
+        return 90
+    if fx ==-1 and fy == 0:
+        return 150
+    if fx ==-1 and fy == 1:
+        return 210
+    if fx == 1 and fy == 1:
+        return 270
+    if fx == 1 and fy == 0:
+        return 330
+
+def facing_from_angle(angle):
+    if angle > 360:
+        angle %= 360
+
+    if angle <= 30 or angle >= 330:
+        return ( 1,  0)
+    if angle <= 90:
+        return ( 1, -1)
+    if angle <= 150:
+        return (-1, -1)
+    if angle <= 210:
+        return (-1,  0)
+    if angle <= 270:
+        return (-1,  1)
+    if angle <= 330:
+        return ( 1,  1)
+
 class Soldier(peachy.Entity):
 
-    AGGRO_DISTANCE = 96
+    SIGHT_DISTANCE = 64
+    AGGRO_DISTANCE = 56
 
     ATTACK_COOLDOWN = 30
+    ALERT_TIMER = 60 * 2  # FPS * 5
     
-    SPEED_ALERT = 1
+    SPEED_ALERT = 0.75
     SPEED = 0.5
     SPEED_SLOW = 0.15
 
@@ -30,18 +66,44 @@ class Soldier(peachy.Entity):
         self.group = 'enemy liftable soldier can-slow can-stun'
         self.width = 8
         self.height = 12
+
+        fx, fy = facing_from_angle(180)
+        self.facing_x = fx
+        self.facing_y = fy
         
+        self.state = None
+        self.substate = None
         if stationary:
             self.state = Soldier.STATE_IDLE
         else:
             self.state = Soldier.STATE_PATROL
 
-        self.facing_x = 1
         self.attack_timer = 0
+        self.alert_timer = 0
+        self.wait_timer = 0
 
         self.stunned = False
         self.stun_timer = 0
         self.slowed = False
+
+        self.spotted_at = None
+
+    def change_state(self, state):
+        if state == Soldier.STATE_IDLE:
+            self.facing_y = 0
+        elif state == Soldier.STATE_PATROL:
+            self.stunned = False
+            self.facing_y = 0
+        elif state == Soldier.STATE_ALERT:
+            self.alert_timer = Soldier.ALERT_TIMER
+            self.velocity_x = 0
+        elif state == Soldier.STATE_STUNNED:
+            self.velocity_x = 0
+            self.stunned = True
+            self.stun_timer = Soldier.STUN_DURATION
+
+        self.spotted_at = None
+        self.state = state
 
     def render(self):
         if self.state == Soldier.STATE_ALERT:
@@ -54,93 +116,130 @@ class Soldier(peachy.Entity):
             peachy.graphics.set_color(255, 192, 203)
         peachy.graphics.draw_rect(self.x, self.y, self.width, self.height)
 
-    def change_state(self, state):
-        if state == Soldier.STATE_IDLE:
-            x = 0
-        elif state == Soldier.STATE_PATROL:
-            self.stunned = False
-        elif state == Soldier.STATE_ALERT:
-            self.velocity_x = 0
-        elif state == Soldier.STATE_STUNNED:
-            self.velocity_x = 0
-            self.stunned = True
-            self.stun_timer = Soldier.STUN_DURATION
+        self.render_light()
+        if self.spotted_at:
+            peachy.graphics.set_color(0, 125, 255, 125)
+            sx, sy = self.spotted_at
+            peachy.graphics.draw_rect(sx, sy, 4, 4)
 
-        self.state = state
-
-    def check_LOS(self, player):  # LOS = Line of Sight
-
-        if player.state == Player.STATE_HIDING:
-            return False
-
-        test_x = 0
-        test_width = abs(self.x - player.x)
-
-        if self.facing_x == -1 and player.x < self.x:
-            test_x = player.x
-        elif self.facing_x == 1 and player.x > self.x:
-            test_x = self.x
-        else:
-            return False
-
-        diff_y = player.y - self.y
-        if diff_y <= self.height and diff_y > player.height * -1:
-            LOS = Rect(test_x, self.y, test_width, self.height)
-            LOS.container = self.container
-
-            if not LOS.collides_solid() and not LOS.collides_group('solid'):
-                return True
-        else:
-            return False
+    def shoot(self, x, y, dx, dy):
+        self.attack_timer = Soldier.ATTACK_COOLDOWN
+        # bullet = SoldierBullet(x + self.width / 2, y + self.height / 2, dx, dy)
+        # self.container.add(bullet)
 
     def update(self):
         temp_x = self.x
         temp_y = self.y
-
         player = self.container.get_name('player')
-        player_visible = self.check_LOS(player)
-        distance_from_player = self.distance_from(player)
-        
-        if player.invisible:
-            player_visible = False
-        
+        player_distance = self.distance_from(player)
+        pcx, pcy = player.center()
+
+        # Raycasting for soldier 'vision'
+        view_obstructions = self.container.get_group('solid')
+        player_visible = False
+
+        if player_distance <= 64 and player.state != Player.STATE_HIDDEN and \
+           not player.invisible:
+            if self.collides(player, self.x, self.y):
+                player_visible = True
+            else:
+                opp = self.y - pcy
+                adj = pcx - self.x
+                angle = math.degrees( math.atan2(opp, adj) )
+
+                if angle < 0:
+                    angle = 360 + angle
+
+                sight_range = angle_from_facing(self.facing_x, self.facing_y)
+
+                if (sight_range <= angle <= sight_range + 60):
+                    player_visible = raycast(self.x, self.y, pcx, pcy, view_obstructions)
+                if sight_range + 60 >= 360:
+                    angle = 360 - angle
+                    if (sight_range <= angle <= sight_range + 60):
+                        player_visible = raycast(self.x, self.y, pcx, pcy, view_obstructions)
+
         if self.state == Soldier.STATE_IDLE:
+            # TODO turn around, check behind you
             if player_visible:
                 self.change_state(Soldier.STATE_ALERT)
 
         elif self.state == Soldier.STATE_PATROL:
             if player_visible:
                 self.change_state(Soldier.STATE_ALERT)
-                return
 
-            if solid_below(self, temp_x + self.width * self.facing_x, temp_y):
-                if self.slowed:
-                    self.velocity_x = Soldier.SPEED_SLOW * self.facing_x
-                else:
-                    self.velocity_x = Soldier.SPEED * self.facing_x
+            elif self.wait_timer > 0:
+                self.wait_timer -= 1
+                if self.wait_timer <= 0:
+                    self.facing_x *= -1
+            
             else:
-                self.velocity_x = 0
-                self.facing_x *= -1
+                if solid_below(self, temp_x, temp_y):
+                    if not solid_below(self, temp_x + self.width * self.facing_x, temp_y):
+                        self.velocity_x = 0
+                        self.wait_timer = 60
+                    else:
+                        if self.slowed:
+                            self.velocity_x = Soldier.SPEED_SLOW * self.facing_x
+                        else:
+                            self.velocity_x = Soldier.SPEED * self.facing_x
+
 
         elif self.state == Soldier.STATE_ALERT:
+            target_distance = 0
             if player_visible:
-                if self.slowed:
-                    self.attack_timer -= 0.25
-                else:
-                    self.attack_timer -= 1
-                if self.attack_timer <= 0:
-                    self.attack_timer = Soldier.ATTACK_COOLDOWN
-                    bullet = SoldierBullet(self.x, self.y + 6, self.facing_x)
-                    self.container.add(bullet)
+                self.alert_timer = Soldier.ALERT_TIMER
+                target_distance = Soldier.AGGRO_DISTANCE
+                self.spotted_at = (pcx, pcy)
+            else:
+                if self.alert_timer == Soldier.ALERT_TIMER:  
+                    # Player just went out of sight, therefore look where they
+                    # would be. ie where they are this frame
+                    self.spotted_at = (pcx, pcy)
 
-            if distance_from_player > Soldier.AGGRO_DISTANCE:
+                self.alert_timer -= 1
+                if self.alert_timer <= 0:
+                    self.change_state(Soldier.STATE_PATROL)
+                    return
+                target_distance = 16
+
+            target = self.spotted_at
+
+            # Compute facing angle
+            opp = self.y - target[1]
+            adj = target[0] - self.x
+            player_angle = math.degrees( math.atan2(opp, adj) )
+            if player_angle < 0:
+                player_angle = 360 + player_angle
+            self.facing_x, self.facing_y = facing_from_angle(player_angle)
+
+
+            dist_x_target = abs(self.center()[0] - target[0])
+            diff_y_target = self.center()[1] - target[1]
+
+            # MOVEMENT
+            if dist_x_target > target_distance:
                 if solid_below(self, temp_x + self.width * self.facing_x, temp_y):
                     if self.slowed:
                         self.velocity_x = Soldier.SPEED_SLOW * self.facing_x
                     else:
                         self.velocity_x = Soldier.SPEED_ALERT * self.facing_x
                 else:
+                    self.wait_timer = 60
+                    # self.facing_x *= -1
                     self.velocity_x = 0
+            else:
+                self.velocity_x = 0
+
+            # ACTION
+            if self.slowed:
+                self.attack_timer -= 0.25
+            else:
+                self.attack_timer -= 1
+
+            if self.attack_timer <= 0 and 0 < dist_x_target <= Soldier.SIGHT_DISTANCE:
+                if 0 <= self.y - player.y <= player.height:
+                    self.shoot(self.x, self.y, self.facing_x, 0)
 
         elif self.state == Soldier.STATE_STUNNED:
             self.stun_timer -= 1
@@ -166,114 +265,79 @@ class Soldier(peachy.Entity):
     def GADGET_revert(self):
         self.slowed = False
 
+    def render_light(self):
+        if self.state == Soldier.STATE_STUNNED:
+            return
 
-class SoldierLight(peachy.Entity):
+        angle = angle_from_facing(self.facing_x, self.facing_y)
 
-    def __init__(self, parent):
-        # self.parent = parent
-        self.facing_x = -1
-        # self.x = parent.x
-        # self.y = parent.y
-        self.x = 200
-        self.y = 180
-        self.width = 1
-        self.height = 1
-    
-    def render(self):
-        player = peachy.PC.world.level.player
-
-        points = []
-        self.parent = peachy.PC.world.level.player
-        solids = self.parent.container.get_group('solid')
-        solids.append(player)
-        MAX_LENGTH = 64.0
-
-        x = self.x
-        y = self.y
+        solids = self.container.get_group('solid', 'opaque')
         
-        points.append((self.x, self.y))
-        for angle in xrange(0, 361, 3):
-            length = MAX_LENGTH
-            rad = math.radians(angle)
+        cx, cy = self.center()
+        points = []
+        points.append((cx, cy))
+
+        for degree in xrange(angle, angle + 61, 3):
+            rad = math.radians(degree)
             dx = math.cos(rad)
             dy = math.sin(rad)
-            rdx = dx * length
-            rdy = dy * length
+            length = Soldier.SIGHT_DISTANCE
 
+            rpx = cx
+            rpy = cy
+            rdx = dx * length
+            rdy = dy * length * -1
+
+            # Find obstructions within the line of sight
             for solid in solids:
-                segments = [
-                    [solid.x, solid.y, -solid.width, 0],
-                    [solid.x + solid.width, solid.y, 0, solid.height],
-                    [solid.x + solid.width, solid.y + solid.height, solid.width, 0],
-                    [solid.x, solid.y + solid.height, 0, -solid.height]
-                ]
+                segments = None
+                try:
+                    segments = solid.segments
+                    if solid.x != segments[0][0]:
+                        solid.refresh_segments()
+                        segments = solid.segments
+                except AttributeError:
+                    segments = get_line_segments(solid)
 
                 for segment in segments:
-                    sx = segment[0]
-                    sy = segment[1]
+                    spx = segment[0]
+                    spy = segment[1]
                     sdx = segment[2]
                     sdy = segment[3]
 
                     # Are the lines parallel? If so, there is no intersection
                     r_mag = math.sqrt(rdx * rdx + rdy * rdy)
                     s_mag = math.sqrt(sdx * sdx + sdy * sdy)
-                    # r_mag = math.sqrt(rdx**2 + rdy**2)
-                    # s_mag = math.sqrt(sdx**2 + sdy**2)
-
                     if (abs(rdx / r_mag) != abs(sdx / s_mag)) or \
                        (abs(rdy / r_mag) != abs(sdy / s_mag)):
 
-                        T2 = (rdx * (sy - y) + rdy * (x - sx)) / (sdx * rdy - sdy * rdx)
-                        T1 = None
+                        T2 = (rdx*(spy-rpy) + rdy*(rpx-spx))/(sdx*rdy - sdy*rdx);
+                        T1 = (spx+sdx*T2-rpx)/rdx;
 
-                        if rdx == 0:
-                            T1 = (sy + sdy * T2 - y) / rdy
-                        else:
-                            T1 = (sx + sdx * T2 - x) / rdx
+                        if T1 >= 0 and T2 >= 0 and T2 <= 1:
+                            if T1 * Soldier.SIGHT_DISTANCE < length:
+                                length = T1 * Soldier.SIGHT_DISTANCE
+            points.append((rpx + dx * length, rpy - dy * length))
 
-                        if T1 >= 0 and T1 <= 1 and T2 >= 0 and T2 <= 1:
-                            if T1 * MAX_LENGTH < length:
-                                length = T1 * length
-            points.append((x + dx * length, y + dy * length))
-
-        peachy.graphics.set_color(255, 255, 0, 50)
+        if self.state == Soldier.STATE_ALERT:
+            peachy.graphics.set_color(255, 0, 0, 75)
+        else:
+            peachy.graphics.set_color(255, 255, 240, 50)
         peachy.graphics.draw_polygon(points)
-
-    def update(self):
-
-        player = peachy.PC.world.level.player
-        if player and player.state != Player.STATE_HIDDEN:
-            distance = self.distance_from_point(player.x + player.width / 2,
-                                                player.y + player.height / 2)
-
-            if distance <= 64:
-                # calculate angle
-                dx = player.x - self.x
-                dy = player.y - self.y
-                angle = math.degrees( math.atan2(dy, dx) )
-                if angle < 0:
-                    angle = 360 + angle
-
-                player_in_sight = False
-                if self.facing_x == 1 and (angle >= 330 or angle <= 30) or \
-                   self.facing_x == -1 and (150 <= angle <= 210):
-                    player_in_sight = True # TODO
-                
-                if player_in_sight:
-                    i = 0
 
 class SoldierBullet(peachy.Entity):
 
     SPEED = 2
     SPEED_SLOW = 0.5
 
-    def __init__(self, x, y, direction_x):
+    def __init__(self, x, y, direction_x, direction_y):
         peachy.Entity.__init__(self, x, y)
         self.group = 'can-slow'
 
         self.width = 4
         self.height = 4
         self.direction_x = direction_x
+        self.direction_y = direction_y
 
         self.slowed = False
 
@@ -289,8 +353,10 @@ class SoldierBullet(peachy.Entity):
 
         if self.slowed:
             self.x += SoldierBullet.SPEED_SLOW * self.direction_x
+            self.y += SoldierBullet.SPEED_SLOW * self.direction_y
         else:
             self.x += SoldierBullet.SPEED * self.direction_x
+            self.y += SoldierBullet.SPEED * self.direction_y
 
         if self.collides_solid() or self.collides_group('solid'):
             self.destroy()
@@ -303,3 +369,4 @@ class SoldierBullet(peachy.Entity):
 
     def GADGET_revert(self):
         self.slowed = False
+

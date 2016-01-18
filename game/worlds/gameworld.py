@@ -2,7 +2,6 @@ import pygame
 import os
 import peachy
 from peachy import PC
-from game.levels import *
 
 class GameWorld(peachy.World):
     NAME = 'game'
@@ -23,7 +22,7 @@ class GameWorld(peachy.World):
         self.scene.exit()
 
     def play_scene(self, scene):
-        self.scene = scene
+        self.scene = scene(self)
         self.scene.load()
 
     def render(self):

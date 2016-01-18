@@ -178,7 +178,7 @@ class AgentObieScene(Scene):
         if peachy.utils.Input.pressed('up'):
             doors = self.player.collides_group('door')
             try:
-                self.load_stage('assets/' + doors[0].link)
+                self.load_tmx('assets/' + doors[0].link)
                 return
             except IndexError:
                 pass
@@ -194,7 +194,7 @@ class AgentObieScene(Scene):
         if triggered:
             trigger = triggered[0]
             if trigger.member_of('stage-change'):
-                self.load_stage('assets/' + trigger.link)
+                self.load_tmx('assets/' + trigger.link)
             elif trigger.member_of('level-change'):
                 self.world.change_level(trigger.link)
             elif trigger.member_of('message'):
@@ -216,40 +216,28 @@ class AgentObieScene(Scene):
         for layer in self.foreground_layers:
             self.stage.render_layer(layer)
 
-
-class LightingTest(AgentObieScene):
+class LightingScene(AgentObieScene):
 
     def __init__(self, world):
-        super(AgentObieScene, self).__init__(self, world)
+        super(LightingScene, self).__init__(world)
         self.world = world
 
-    def startup(self):
-        self.player = Player(0, 0)
+    def load(self):
+        self.player = Player(50, 0)
         self.player.change_gadget('INVISIBLE')
         self.entities.add(self.player)
 
-        # sold = self.entities.add(Soldier(100, 0))
-        self.entities.add(Solid(150, 150, 10, 10)).visible = True
-        self.entities.add(Solid(0, 200, 320, 32)).visible = True
-        self.light = soldier.SoldierLight(None)
-
-    def render(self):
-        super().render(self)
-        self.light.render()
-
-    def update(self):
-        super().update(self)
-        self.light.update()
-        
+        soldier = self.entities.add(Soldier(PC.width / 4, 0))
+        self.entities.add(Solid(50, 200, PC.width / 2 - 100, 32)).visible = True
 
 class TestScene(AgentObieScene):
 
     def __init__(self, world):
-        AgentObieScene.__init__(self, world)
+        super(TestScene, self).__init__(world)
         self.world = world
 
-    def load_stage(self, path):
-        super().load_stage(self, path)
+    def load_tmx(self, path):
+        super(TestScene, self).load_stage(self, path)
         for e in self.entities:
             if e.member_of('solid'):
                 e.visible = True

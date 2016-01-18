@@ -11,7 +11,6 @@ class Rect(peachy.Entity):
         self.width = width
         self.height = height
 
-
 def collision_resolution(entity, x, y):
 
     # basic platformer collision resolution routine
@@ -67,6 +66,47 @@ def collision_resolution(entity, x, y):
 
     collision_occurred = len(collisions) > 0
     return collision_occurred, x, y, vel_x, vel_y
+
+def get_line_segments(entity):
+    return [ [entity.x, entity.y, entity.width, 0], 
+             [entity.x + entity.width, entity.y, 0, entity.height], 
+             [entity.x + entity.width, entity.y + entity.height, -entity.width, 0], 
+             [entity.x, entity.y + entity.height, 0, -entity.height]]
+
+def line_line_collision(lineA1, lineA2, lineB1, lineB2):
+    denominator = ((lineB2[1] - lineB1[1]) * (lineA2[0] - lineA1[0])) - \
+                  ((lineB2[0] - lineB1[0]) * (lineA2[1] - lineA1[1]))
+
+    if denominator == 0:
+        return False
+    else:
+        ua = (((lineB2[0] - lineB1[0]) * (lineA1[1] - lineB1[1])) - \
+              ((lineB2[1] - lineB1[1]) * (lineA1[0] - lineB1[0]))) / denominator
+
+        ub = (((lineA2[0] - lineA1[0]) * (lineA1[1] - lineB1[1])) - \
+              ((lineA2[1] - lineA1[1]) * (lineA1[0] - lineB1[0]))) / denominator
+
+        if (ua < 0) or (ua > 1) or (ub < 0) or (ub > 1):
+            return False
+        return True
+
+def raycast(sx, sy, ex, ey, obstructions):
+    lineA1 = (sx, sy)
+    lineA2 = (ex, ey)
+
+    for obstruction in obstructions:
+        segments = []
+        try:
+            segments = obstruction.segments
+        except AttributeError, IndexError:
+            segments = get_line_segments(obstruction)
+
+        for segment in segments:
+            lineB1 = (segment[0], segment[1])
+            lineB2 = (segment[0] + segment[2], segment[1] + segment[3])
+            if line_line_collision(lineA1, lineA2, lineB1, lineB2):
+                return False
+    return True
 
 def solid_below(entity, x, y):
     return entity.collides_solid(x, y + 1)

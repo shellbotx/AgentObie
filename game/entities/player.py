@@ -28,7 +28,7 @@ class Player(peachy.Entity):
     def __init__(self, x, y):
         peachy.Entity.__init__(self, x, y)
         self.name = 'player'
-        self.group = 'liftable'
+        self.group = 'liftable opaque'
         self.width = Player.WIDTH
         self.height = Player.HEIGHT_STANDARD
         self.facing_x = 1
@@ -145,6 +145,12 @@ class Player(peachy.Entity):
             graphics.draw_rect(self.x, self.y, self.width, self.height)
             self.gadget.render()
             return
+        if Input.down('g'):
+            graphics.color = (125, 125, 125)
+            graphics.draw_rect(self.x, self.y, self.width, self.height)
+            self.gadget.render()
+            return
+
 
         self.sprite.render(self.x, self.y)
         self.gadget.render()
@@ -167,7 +173,6 @@ class Player(peachy.Entity):
         keypressed_gadget = Input.pressed('x')
 
         if self.state == Player.STATE_STANDARD:
-
             # Run/Walk
             if keydown_left == keydown_right:
                 self.velocity_x = 0
