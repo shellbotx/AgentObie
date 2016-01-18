@@ -13,5 +13,5 @@ if __name__ == "__main__":
         pass
 
     game = AgentObieEngine(debug)
-    game.world.play_scene(PierScene(game.world))
+    # game.world.play_scene(PierScene(game.world))
     game.run()

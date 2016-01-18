@@ -1,4 +1,4 @@
-from scenes import AgentObieScene
+from game.scenes import AgentObieScene
 
 class SewerScene(AgentObieScene):
     
