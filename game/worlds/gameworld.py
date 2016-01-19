@@ -1,7 +1,7 @@
-import pygame
 import os
 import peachy
 from peachy import PC
+from game.scenes import *
 
 class GameWorld(peachy.World):
     NAME = 'game'
@@ -11,12 +11,16 @@ class GameWorld(peachy.World):
     STATE_MESSAGE = 'message'
 
     def __init__(self):
-        peachy.World.__init__(self, GameWorld.NAME)
+        # peachy.World.__init__(self, GameWorld.NAME)
+        super(GameWorld, self).__init__(GameWorld.NAME)
 
         self.state = GameWorld.STATE_PLAY
-        self.scene = None
+        # self.scene = None
 
         self.context = peachy.graphics.Surface((320, 240))
+
+    def init_new_game(self):
+        self.play_scene(PierScene)
 
     def close(self):
         self.scene.exit()
