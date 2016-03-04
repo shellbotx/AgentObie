@@ -2,6 +2,7 @@ import os
 
 import peachy
 from peachy import PC, Scene
+from peachy.utils import Point
 
 import game.entities
 from game.entities import *
@@ -13,6 +14,7 @@ class AgentObieScene(Scene):
 
         self.player = None
         self.stage = None
+        self.previous_stage = ''
         self.foreground_layers = []
         self.background_layers = []
 
@@ -20,10 +22,28 @@ class AgentObieScene(Scene):
         self.camera.max_width = 320
         self.camera.max_height = 240
 
+    def draw_HUD(self):
+        peachy.graphics.set_color(255, 255, 255)
+        if self.player.gadget.name == 'INVS':
+            peachy.graphics.draw_text('INVS', 0, 12)
+        else:
+            peachy.graphics.draw_text('NONE', 0, 12)
+        
+
+        time = str(round(float(self.player.gadget.timer) / 60.0, 1))
+        x = (self.player.x + self.player.width + 4) * 2
+        y = (self.player.y + 4) * 2
+        
+        if self.player.gadget.state == 0:
+            peachy.graphics.draw_text(time, x, y)
+        elif self.player.gadget.state == 2:
+            peachy.graphics.set_color(255, 255, 0)
+            peachy.graphics.draw_text(time, x, y)
+
     def exit(self):
         if self.stage:
             self.stage.clear()
-        self.entities.clear()
+        self.clear()
         self.world = None
         del self.stage
         del self.player
@@ -32,16 +52,16 @@ class AgentObieScene(Scene):
 
     def load_tmx(self, path):
         stage = peachy.utils.Stage.load_tiled(path)
-        previous_stage = ''
-
         stage.name = os.path.basename(stage.path)[:-4]
 
+        previous_stage = ''
         if self.stage:
             previous_stage = os.path.basename(self.stage.path)
+
         if self.player is None:
             self.player = Player(0, 0)
         
-        self.entities.clear()
+        self.clear()
 
         for OBJ in stage.objects:
             obj = self.load_stage_OBJ(OBJ, stage, previous_stage)
@@ -49,10 +69,20 @@ class AgentObieScene(Scene):
             if obj is not None:
                 if 'NAME' in OBJ.properties:
                     obj.name = OBJ.properties['NAME']
-                self.entities.add(obj)
+                self.add(obj)
 
         # Add player last so they are on the top of the render queue
-        self.entities.add(self.player)
+        self.add(self.player)
+        if self.player.state == Player.STATE_CLIMBING:
+            try:
+                ladder = self.player.collides_group('rope')[0]
+                vertical = True
+                if ladder.height == 0:
+                    vertical = False
+                self.player.change_state(Player.STATE_CLIMBING, 
+                    handle=ladder, vertical=vertical)
+            except IndexError:
+                self.player.change_state(Player.STATE_STANDARD)
 
         # TODO sort based on z-level
 
@@ -60,14 +90,15 @@ class AgentObieScene(Scene):
         self.background_layers = []
         for layer in stage.layers:
             layer_type = layer.name[:10]
-            if layer_type == 'FOREGROUND':
+            if layer_type == 'FOREGROUND' or layer_type[:2] == 'FG':
                 self.foreground_layers.append(layer)
-            elif layer_type == 'BACKGROUND':
+            elif layer_type == 'BACKGROUND' or layer_type[:2] == 'BG':
                 self.background_layers.append(layer)
 
         self.camera.max_width = stage.width
         self.camera.max_height = stage.height
 
+        self.previous_stage = self.stage
         self.stage = stage
 
     def load_stage_OBJ(self, OBJ, stage, previous_stage):
@@ -78,6 +109,18 @@ class AgentObieScene(Scene):
 
         if OBJ.group == 'SOLID':
             return Solid(OBJ.x, OBJ.y, OBJ.w, OBJ.h)
+
+        elif OBJ.name == 'DEBUG' and previous_stage == '':
+            self.player.x = OBJ.x
+            self.player.y = OBJ.y
+
+        elif OBJ.name == 'BLOCK' or \
+             OBJ.name == 'PUSH_BLOCK':
+            return PushBlock(OBJ.x, OBJ.y)
+
+        elif OBJ.name == 'BUTTON':
+            on_press = OBJ.properties['ON_PRESS']
+            return Button(OBJ.x, OBJ.y, on_press)
 
         elif OBJ.name == 'CHANGE_LEVEL':
             link = OBJ.properties['LINK']
@@ -92,7 +135,7 @@ class AgentObieScene(Scene):
             except KeyError:
                 pass
 
-            if link == previous_stage:
+            if os.path.basename(link) == previous_stage:
                 sx = OBJ.x
                 sy = OBJ.y
                 # TODO if continuous:
@@ -103,15 +146,16 @@ class AgentObieScene(Scene):
                     sx = stage.width - Player.WIDTH
                 if OBJ.y < 0:
                     sy = 0
-                elif OBJ.y > stage.height:
-                    sy = stage.height - Player.HEIGHT
+                elif OBJ.y >= stage.height:
+                    sy = stage.height - Player.HEIGHT_STANDARD
+
                 self.player.x = sx
                 self.player.y = sy
 
             return StageChangeTrigger(OBJ.x, OBJ.y, OBJ.w, OBJ.h, link)
         elif OBJ.name == 'DOOR':
             link = OBJ.properties['LINK']
-            if link == previous_stage:
+            if os.path.basename(link) == previous_stage:
                 self.player.x = OBJ.x
                 self.player.y = OBJ.y
             return Door(OBJ.x, OBJ.y, link)
@@ -125,6 +169,16 @@ class AgentObieScene(Scene):
         elif OBJ.name == 'KEY':
             link = OBJ.properties['LINK']
             return Key(OBJ.x, OBJ.y, link)
+        elif OBJ.name == 'LIFT_C':
+            nodes = []
+
+            for point in OBJ.polygon_points:
+                point.x += OBJ.x 
+                point.y += OBJ.y
+                nodes.append(point)
+
+            c_lift = ControlledLift(nodes, OBJ.w, OBJ.h)
+            return c_lift
         elif OBJ.name == 'LOCKED_DOOR':
             link = OBJ.properties['LINK']
             return  LockedDoor(OBJ.x, OBJ.y, OBJ.w, OBJ.h, link)
@@ -135,6 +189,7 @@ class AgentObieScene(Scene):
             try:
                 on_pull = OBJ.properties['ON_PULL']
             except KeyError:
+                print '[WARN] no pull operation found for lever'
                 pass
             try:
                 lock = OBJ.properties['LOCK']
@@ -142,8 +197,7 @@ class AgentObieScene(Scene):
                 pass
 
             return Lever(OBJ.x, OBJ.y, on_pull, lock)
-        elif OBJ.name == 'BLOCK' or OBJ.name == 'PUSH_BLOCK':
-            return PushBlock(OBJ.x, OBJ.y)
+
         elif OBJ.name == 'MESSAGE_BOX':
             message = OBJ.properties['MESSAGE']
             return MessageBox(OBJ.x, OBJ.y, message)
@@ -172,8 +226,17 @@ class AgentObieScene(Scene):
             except KeyError:
                 pass
             return soldier
+
+    def reload_stage(self):
+        self.player.change_state(Player.STATE_STANDARD)
+        path = self.stage.path
+        self.stage = self.previous_stage
+        self.load_tmx(path)
     
     def update(self):
+        if peachy.utils.Input.pressed('r'):
+            self.reload_stage()
+
         if peachy.utils.Input.pressed('up'):
             doors = self.player.collides_group('door')
             try:
@@ -195,13 +258,18 @@ class AgentObieScene(Scene):
             if trigger.member_of('stage-change'):
                 self.load_tmx('assets/' + trigger.link)
             elif trigger.member_of('level-change'):
-                self.world.change_level(trigger.link)
+                scene = scene_from_string(trigger.link)
+                self.world.change_scene(scene)
             elif trigger.member_of('message'):
                 self.world.state = 'message'
                 self.world.message = trigger
             return
+        
+        if self.player.state == Player.STATE_DEAD:
+            self.world.state = 'game-over'
+            return
 
-        self.entities.update()
+        super(AgentObieScene, self).update()
     
     def render(self):
         self.camera.snap(self.player.x, self.player.y, True)
@@ -210,7 +278,7 @@ class AgentObieScene(Scene):
         for layer in self.background_layers:
             self.stage.render_layer(layer)
 
-        self.entities.render()
+        super(AgentObieScene, self).render()
 
         for layer in self.foreground_layers:
             self.stage.render_layer(layer)
@@ -218,3 +286,12 @@ class AgentObieScene(Scene):
 from pier import PierScene
 from sewer import SewerScene
 from tests import *
+
+def scene_from_string(name):
+    name = name.lower()
+    if name == 'pier':
+        return PierScene
+    elif name == 'sewer':
+        return SewerScene
+    else:
+        print 'SCENE NOT FOUND {0}'.format(name)

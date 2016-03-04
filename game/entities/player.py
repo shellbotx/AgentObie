@@ -26,7 +26,8 @@ class Player(peachy.Entity):
     HEIGHT_CROUCH = 8
 
     def __init__(self, x, y):
-        peachy.Entity.__init__(self, x, y)
+        super(Player, self).__init__(x, y)
+
         self.name = 'player'
         self.group = 'liftable opaque'
         self.width = Player.WIDTH
@@ -37,7 +38,7 @@ class Player(peachy.Entity):
         self.state_args = {}
 
         self.sprite = graphics.SpriteMap(
-            peachy.assets.get_image('assets/obie.png'), 16, 16)
+            peachy.graphics.get_image('assets/img/obie.png'), 16, 16)
 
         os=(4, 4)  # origin_standard
         oc=(4, 8)  # origin_crouch
@@ -48,7 +49,11 @@ class Player(peachy.Entity):
         self.sprite.add('PUSH', [2], origin=os)
         self.sprite.add('CROUCH', [20], origin=oc)
         self.sprite.add('CRAWL', [20, 21, 22, 23, 24, 25], 5, True, origin=oc)
-        self.sprite.add('TODO', [4])
+        self.sprite.add('HANG', [3], origin=(4, 0))
+        self.sprite.add('INVISIBLE', [4], origin=os)
+        self.sprite.add('HIDDEN', [5], origin=os)
+        self.sprite.add('TODO', [9])
+
         self.sprite.play('IDLE')
 
         self.gadget = Gadget(self)
@@ -65,6 +70,9 @@ class Player(peachy.Entity):
 
     def change_state(self, state, **kwargs):
         self.state_args = kwargs
+
+        if self.gadget.name != InvisibilityCloak.NAME or self.gadget.state != Gadget.STATE_ACTIVE:
+            self.invisible = False
 
         if state == Player.STATE_STANDARD:
             diff_height = self.height - Player.HEIGHT_STANDARD
@@ -94,10 +102,11 @@ class Player(peachy.Entity):
 
         elif state == Player.STATE_HIDDEN:
             hiding_spot = kwargs['hiding_spot']
+            self.invisible = True
 
             if self.x < hiding_spot.x:
                 self.x = hiding_spot.x
-            if self.x + self.width > hiding_spot.x + hiding_spot.width:
+            if self.x + self.width >= hiding_spot.x + hiding_spot.width:
                 self.x = hiding_spot.x + hiding_spot.width - self.width
 
             self.velocity_x = 0
@@ -120,9 +129,13 @@ class Player(peachy.Entity):
 
     def render(self):
         flip_x = self.facing_x == -1
-        flip_required = flip_x != self.sprite.flipped_x
 
-        if self.state == Player.STATE_STANDARD:
+        if self.invisible:
+            if self.state == Player.STATE_HIDDEN:
+                self.sprite.play('HIDDEN', flip_x)
+            else:
+                self.sprite.play('INVISIBLE', flip_x)
+        elif self.state == Player.STATE_STANDARD:
             if self.velocity_y == 0 and not solid_below(self, self.x, self.y):
                 self.sprite.play('JUMP', flip_x)
             elif self.velocity_y < 0:
@@ -133,24 +146,25 @@ class Player(peachy.Entity):
                 self.sprite.play('RUN', flip_x)
             else:
                 self.sprite.play('IDLE', flip_x)
-        elif self.state == Player.STATE_PUSHING:
-            self.sprite.play('PUSH', flip_x)
         elif self.state == Player.STATE_CROUCHING:
             if self.velocity_x != 0:
                 self.sprite.play('CRAWL', flip_x)
             else:
                 self.sprite.play('CROUCH', flip_x) 
+        elif self.state == Player.STATE_LEDGEGRAB:
+            self.sprite.play('HANG', flip_x)
+        elif self.state == Player.STATE_PUSHING:
+            self.sprite.play('PUSH', flip_x)
         else:
-            graphics.color = (125, 125, 125)
+            graphics.set_color(125, 125, 125)
             graphics.draw_rect(self.x, self.y, self.width, self.height)
             self.gadget.render()
             return
         if Input.down('g'):
-            graphics.color = (125, 125, 125)
+            graphics.set_color(125, 125, 125)
             graphics.draw_rect(self.x, self.y, self.width, self.height)
             self.gadget.render()
             return
-
 
         self.sprite.render(self.x, self.y)
         self.gadget.render()
@@ -254,7 +268,12 @@ class Player(peachy.Entity):
 
                     elif keypressed_up:
                         if interact.member_of('door'):
+                            if self.gadget.state == Gadget.STATE_ACTIVE:
+                                self.gadget.cancel()
                             interact.enter()
+
+                        elif interact.member_of('button'):
+                            interact.press()
 
                         elif interact.member_of('lever'):
                             interact.pull()
@@ -498,10 +517,14 @@ class Gadget(object):
         self.timer = 0
         self.state = Gadget.STATE_INACTIVE
 
+    def cancel(self):
+        return
+
     def use(self):
         if self.state == Gadget.STATE_INACTIVE:
             self.state = Gadget.STATE_ACTIVE
             self.timer = 60 * 3
+
 
     def render(self):
         return
@@ -512,14 +535,20 @@ class Gadget(object):
 
 class StunBomb(Gadget):
 
+    NAME = 'STUN'
     COOLDOWN = 60 * 2
     DURATION = 60 * 0.25
     MAX_RADIUS = 32
 
     def __init__(self, player):
-        Gadget.__init__(self, 'STUN BOMB')
+        Gadget.__init__(self, StunBomb.CODE)
         self.radius = 0
         self.player = player
+
+    def cancel(self):
+        if self.state == Gadget.STATE_ACTIVE:
+            self.state = Gadget.STATE_COOLDOWN
+            self.timer = StunBomb.COOLDOWN
 
     def use(self):
         if self.state == Gadget.STATE_INACTIVE:
@@ -559,12 +588,19 @@ class StunBomb(Gadget):
 
 
 class InvisibilityCloak(Gadget):
+
+    NAME = 'INVS'
     COOLDOWN = 60 * 5
     DURATION = 60 * 3
 
     def __init__(self, player):
-        Gadget.__init__(self, 'INVISIBILITY CLOAK')
+        Gadget.__init__(self, InvisibilityCloak.NAME)
         self.player = player
+
+    def cancel(self):
+        if self.state == Gadget.STATE_ACTIVE:
+            self.state = Gadget.STATE_COOLDOWN
+            self.timer = InvisibilityCloak.COOLDOWN
 
     def use(self):
         if self.state == Gadget.STATE_INACTIVE:
@@ -578,15 +614,22 @@ class InvisibilityCloak(Gadget):
             peachy.graphics.draw_circle(self.player.x - (self.player.width / 2) - 8, 
                                         self.player.y - (self.player.height / 2) - 6, 16)
 
+    def cancel(self):
+        if self.state ==  Gadget.STATE_ACTIVE:
+            self.state = Gadget.STATE_COOLDOWN
+            self.timer = InvisibilityCloak.COOLDOWN
+            self.player.invisible = False
+
     def update(self):
         if self.timer > 0:
             self.timer -= 1
 
         if self.state == Gadget.STATE_ACTIVE:
             if self.timer <= 0:
-                self.state = Gadget.STATE_COOLDOWN
-                self.timer = InvisibilityCloak.COOLDOWN
-                self.player.invisible = False
+                self.cancel()
+                # self.state = Gadget.STATE_COOLDOWN
+                # self.timer = InvisibilityCloak.COOLDOWN
+                # self.player.invisible = False
 
         elif self.state == Gadget.STATE_COOLDOWN:
             if self.timer <= 0:
@@ -595,12 +638,14 @@ class InvisibilityCloak(Gadget):
 
 
 class TimeDisruptor(Gadget):
+
+    NAME = 'TIME'
     COOLDOWN = 60 * 2
     DURATION = 60 * 3
     RADIUS = 32
 
     def __init__(self, player):
-        Gadget.__init__(self, 'TIME DISRUPTOR')
+        Gadget.__init__(self, TimeDisruptor.NAME)
         self.player = player
 
     def use(self):

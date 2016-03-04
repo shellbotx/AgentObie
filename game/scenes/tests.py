@@ -11,12 +11,30 @@ class LightingScene(AgentObieScene):
         self.world = world
 
     def load(self):
-        self.player = Player(50, 0)
-        self.player.change_gadget('INVISIBLE')
+        self.player = Player(75, 100)
+        # self.player.change_gadget('INVISIBLE')
+        self.player.change_gadget('TIME')
         self.entities.add(self.player)
 
-        soldier = self.entities.add(Soldier(PC.width / 4, 0))
-        self.entities.add(Solid(50, 200, PC.width / 2 - 100, 32)).visible = True
+        soldier = self.entities.add(Soldier(PC.width / 3, 100))
+        self.entities.add(Solid(75, 150, PC.width / 2 - 150, 32)).visible = True
+
+    def render(self):
+        peachy.graphics.set_color_hex('#010101')
+        peachy.graphics.draw_rect(0, 0, PC.width, PC.height)
+
+        peachy.graphics.set_color_hex('#001144')
+
+        for y in xrange(-8, PC.height / 2, 16):
+            # peachy.graphics.set_color_hex('#000055')
+            peachy.graphics.draw_line(0, y, PC.width, y)
+            # peachy.graphics.set_color_hex('#001155')
+            # peachy.graphics.draw_line(0, y + 1, PC.width, y + 1)
+        for x in xrange(-9, PC.width / 2, 16):
+            peachy.graphics.draw_line(x, 0, x, PC.height / 2)
+
+
+        super(LightingScene, self).render()
 
 class TestScene(AgentObieScene):
 
@@ -25,11 +43,11 @@ class TestScene(AgentObieScene):
         self.world = world
 
     def load_tmx(self, path):
-        super(TestScene, self).load_stage(self, path)
+        super(TestScene, self).load_tmx(path)
         for e in self.entities:
             if e.member_of('solid'):
                 e.visible = True
-        self.player.change_gadget('TIME')
+        self.player.change_gadget('INVISIBLE')
         # self.entities.add(MessageBox(4, 184, 'TEST MESSAGE'))
 
     def render(self):
@@ -40,5 +58,5 @@ class TestScene(AgentObieScene):
         for y in xrange(-8, PC.height / 2, 16):
             peachy.graphics.draw_line(0, y, PC.width, y)
 
-        super().render(self)
+        super(TestScene, self).render()
 

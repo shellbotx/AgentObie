@@ -2,9 +2,12 @@ import math
 
 import peachy
 from peachy import PC
+from peachy import graphics
+from peachy.utils import splice_image
 
 from game.utility import collision_resolution, get_line_segments, \
-                         line_line_collision, raycast, solid_below
+                         line_line_collision, raycast, solid_below, \
+                         Image
 
 from player import Player
 
@@ -47,12 +50,12 @@ class Soldier(peachy.Entity):
     SIGHT_DISTANCE = 64
     AGGRO_DISTANCE = 56
 
-    ATTACK_COOLDOWN = 30
+    ATTACK_COOLDOWN = 90
     ALERT_TIMER = 60 * 2  # FPS * 5
-    
-    SPEED_ALERT = 0.75
+
+    SPEED_ALERT = 1
     SPEED = 0.5
-    SPEED_SLOW = 0.15
+    SPEED_SLOW = 0.25
 
     STATE_IDLE = 'idle'
     STATE_ALERT = 'alert'
@@ -65,7 +68,7 @@ class Soldier(peachy.Entity):
         peachy.Entity.__init__(self, x, y)
         self.group = 'enemy liftable soldier can-slow can-stun'
         self.width = 8
-        self.height = 12
+        self.height = 16
 
         fx, fy = facing_from_angle(180)
         self.facing_x = fx
@@ -78,7 +81,7 @@ class Soldier(peachy.Entity):
         else:
             self.state = Soldier.STATE_PATROL
 
-        self.attack_timer = 0
+        self.attack_timer = Soldier.ATTACK_COOLDOWN
         self.alert_timer = 0
         self.wait_timer = 0
 
@@ -88,44 +91,64 @@ class Soldier(peachy.Entity):
 
         self.spotted_at = None
 
-    def change_state(self, state):
+        orig = (4, 2)
+        self.sprite = graphics.SpriteMap(peachy.graphics.get_image('assets/img/soldier.png'), 18, 18)
+        self.sprite.add('IDLE', [0], origin=orig)
+        self.sprite.add('RUN', [5, 6, 7, 8, 9, 10, 11, 12], 4, True, origin=orig)
+
+    def change_state(self, state, **kwargs):
+        previous_state = self.state
+        self.state = state
+
         if state == Soldier.STATE_IDLE:
             self.facing_y = 0
+            self.spotted_at = None
+
         elif state == Soldier.STATE_PATROL:
             self.stunned = False
             self.facing_y = 0
+            self.spotted_at = None
+
         elif state == Soldier.STATE_ALERT:
-            self.alert_timer = Soldier.ALERT_TIMER
+            self.container.add(AlertAnimation(self))  # Play alert animation
+
+            self.alert_timer = Soldier.ATTACK_COOLDOWN / 2
             self.velocity_x = 0
+            self.spotted_at = kwargs['spotted']
+
         elif state == Soldier.STATE_STUNNED:
             self.velocity_x = 0
             self.stunned = True
             self.stun_timer = Soldier.STUN_DURATION
 
-        self.spotted_at = None
-        self.state = state
-
     def render(self):
-        if self.state == Soldier.STATE_ALERT:
-            peachy.graphics.set_color(255, 0, 0)
-        elif self.state == Soldier.STATE_STUNNED:
-            peachy.graphics.set_color(255, 255, 51)
-        elif self.slowed:
-            peachy.graphics.set_color(0, 0, 255)
+        flip_x = self.facing_x == -1
+
+        if self.state == Soldier.STATE_IDLE:
+            self.sprite.play('IDLE', flip_x)
+        elif self.state == Soldier.STATE_ALERT or self.state == Soldier.STATE_PATROL:
+            if self.velocity_x != 0:
+                self.sprite.play('RUN', flip_x)
+            else:
+                self.sprite.play('IDLE', flip_x)
         else:
-            peachy.graphics.set_color(255, 192, 203)
-        peachy.graphics.draw_rect(self.x, self.y, self.width, self.height)
+            graphics.set_color(255, 192, 203)
 
         self.render_light()
-        if self.spotted_at:
-            peachy.graphics.set_color(0, 125, 255, 125)
+        
+        graphics.set_color(255, 192, 203)
+        # graphics.draw_rect(self.x, self.y, self.width, self.height)
+        self.sprite.render(self.x, self.y)
+
+        if self.spotted_at and peachy.utils.Input.down('g'):
+            graphics.set_color(0, 125, 255, 125)
             sx, sy = self.spotted_at
-            peachy.graphics.draw_rect(sx, sy, 4, 4)
+            graphics.draw_rect(sx, sy, 4, 4)
 
     def shoot(self, x, y, dx, dy):
         self.attack_timer = Soldier.ATTACK_COOLDOWN
-        # bullet = SoldierBullet(x + self.width / 2, y + self.height / 2, dx, dy)
-        # self.container.add(bullet)
+        bullet = SoldierBullet(x + self.width / 2, y + self.height / 2, dx, dy)
+        self.container.add(bullet)
 
     def update(self):
         temp_x = self.x
@@ -162,20 +185,20 @@ class Soldier(peachy.Entity):
         if self.state == Soldier.STATE_IDLE:
             # TODO turn around, check behind you
             if player_visible:
-                self.change_state(Soldier.STATE_ALERT)
+                self.change_state(Soldier.STATE_ALERT, spotted=(pcx, pcy))
 
         elif self.state == Soldier.STATE_PATROL:
             if player_visible:
-                self.change_state(Soldier.STATE_ALERT)
+                self.change_state(Soldier.STATE_ALERT, spotted=(pcx, pcy))
 
             elif self.wait_timer > 0:
                 self.wait_timer -= 1
                 if self.wait_timer <= 0:
                     self.facing_x *= -1
-            
             else:
                 if solid_below(self, temp_x, temp_y):
-                    if not solid_below(self, temp_x + self.width * self.facing_x, temp_y):
+                    if self.collides_solid(temp_x + self.width * self.facing_x, self.y) or \
+                       not solid_below(self, temp_x + self.width * self.facing_x, temp_y):
                         self.velocity_x = 0
                         self.wait_timer = 60
                     else:
@@ -183,7 +206,6 @@ class Soldier(peachy.Entity):
                             self.velocity_x = Soldier.SPEED_SLOW * self.facing_x
                         else:
                             self.velocity_x = Soldier.SPEED * self.facing_x
-
 
         elif self.state == Soldier.STATE_ALERT:
             target_distance = 0
@@ -201,7 +223,7 @@ class Soldier(peachy.Entity):
                 if self.alert_timer <= 0:
                     self.change_state(Soldier.STATE_PATROL)
                     return
-                target_distance = 16
+                target_distance = 12
 
             target = self.spotted_at
 
@@ -213,13 +235,13 @@ class Soldier(peachy.Entity):
                 player_angle = 360 + player_angle
             self.facing_x, self.facing_y = facing_from_angle(player_angle)
 
-
             dist_x_target = abs(self.center()[0] - target[0])
             diff_y_target = self.center()[1] - target[1]
 
             # MOVEMENT
             if dist_x_target > target_distance:
-                if solid_below(self, temp_x + self.width * self.facing_x, temp_y):
+                if solid_below(self, temp_x + self.width * self.facing_x, temp_y) and not \
+                   self.collides_solid(temp_x + self.width * self.facing_x, self.y):
                     if self.slowed:
                         self.velocity_x = Soldier.SPEED_SLOW * self.facing_x
                     else:
@@ -237,9 +259,8 @@ class Soldier(peachy.Entity):
             else:
                 self.attack_timer -= 1
 
-            if self.attack_timer <= 0 and 0 < dist_x_target <= Soldier.SIGHT_DISTANCE:
-                if 0 <= self.y - player.y <= player.height:
-                    self.shoot(self.x, self.y, self.facing_x, 0)
+            if self.attack_timer <= 0 and player_visible:
+                self.shoot(self.x, self.y, self.facing_x, self.facing_y)
 
         elif self.state == Soldier.STATE_STUNNED:
             self.stun_timer -= 1
@@ -290,6 +311,9 @@ class Soldier(peachy.Entity):
 
             # Find obstructions within the line of sight
             for solid in solids:
+                if solid.name == 'player' and solid.invisible:
+                    continue
+
                 segments = None
                 try:
                     segments = solid.segments
@@ -320,10 +344,25 @@ class Soldier(peachy.Entity):
             points.append((rpx + dx * length, rpy - dy * length))
 
         if self.state == Soldier.STATE_ALERT:
-            peachy.graphics.set_color(255, 0, 0, 75)
+            graphics.set_color(255, 0, 0, 64)
         else:
-            peachy.graphics.set_color(255, 255, 240, 50)
-        peachy.graphics.draw_polygon(points)
+            graphics.set_color(255, 255, 196, 32)
+        graphics.draw_polygon(points)
+
+class AlertAnimation(Image):
+
+    def __init__(self, soldier):
+        soldier_spritesheet = peachy.graphics.get_image('assets/img/soldier.png')
+        alert_icon = splice_image(soldier_spritesheet, 18, 18)[3]
+        super(AlertAnimation, self).__init__(soldier.x, soldier.y, alert_icon, 20)
+        self.soldier = soldier
+
+    def update(self):
+        off_y = self.image.get_height()
+
+        self.x = self.soldier.x - 4
+        self.y = self.soldier.y - off_y
+        super(AlertAnimation, self).update()
 
 class SoldierBullet(peachy.Entity):
 
@@ -343,10 +382,10 @@ class SoldierBullet(peachy.Entity):
 
     def render(self):
         if self.slowed:
-            peachy.graphics.set_color(0, 0, 255)
+            graphics.set_color(0, 0, 255)
         else:
-            peachy.graphics.set_color(255, 0, 0)
-        peachy.graphics.draw_rect(self.x, self.y, self.width, self.height)
+            graphics.set_color(255, 0, 0)
+        graphics.draw_rect(self.x, self.y, self.width, self.height)
 
     def update(self):
         player = self.container.get_name('player')

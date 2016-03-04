@@ -1,4 +1,5 @@
 from game.scenes import AgentObieScene
+from game.entities import Player
 
 class SewerScene(AgentObieScene):
     
@@ -8,4 +9,4 @@ class SewerScene(AgentObieScene):
 
     def load(self):
         self.player = Player(152, 0)
-        self.load_stage('assets/sewer_01.tmx')
+        self.load_tmx('assets/stage/sewer_01.tmx')

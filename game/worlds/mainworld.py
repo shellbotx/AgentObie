@@ -1,6 +1,6 @@
 import peachy
 from peachy import PC
-from peachy.assets import get_font
+# from peachy.assets import get_font
 from peachy.utils import Input
 
 NEW = 0
@@ -14,7 +14,7 @@ class MainWorld(peachy.World):
     def __init__(self):
         super(MainWorld, self).__init__(MainWorld.NAME)
         self.current_selection = 0
-        self.selections = [ "new", "continue", "exit" ]
+        self.selections = [ "PLAY GAME", "EXIT" ]
 
     def start_new(self):
         return
@@ -26,7 +26,10 @@ class MainWorld(peachy.World):
         peachy.graphics.set_color(0, 0, 0)
         peachy.graphics.draw_rect(0, 0, PC.width, PC.height)
 
-        font = peachy.graphics.font
+        font = peachy.graphics.font()
+
+        peachy.graphics.set_color(255, 255, 255)
+        peachy.graphics.draw_text("AGENT OBIE | ALPHA BUILD 3", 0, 100, center=True)
 
         for selection in xrange(len(self.selections)):
             text = self.selections[selection]
@@ -37,7 +40,7 @@ class MainWorld(peachy.World):
 
             peachy.graphics.set_color(255, 255, 255)
             if selection == self.current_selection:
-                peachy.graphics.draw_rect(x - 16, y + 4, text_width + 32, 16)
+                peachy.graphics.draw_rect(x - 16, y, text_width + 32, 16)
                 peachy.graphics.set_color(0, 0, 0)
             peachy.graphics.draw_text(text, x, y)
 

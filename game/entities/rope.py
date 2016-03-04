@@ -9,7 +9,10 @@ class Rope(peachy.Entity):
         self.width = width
         self.height = height
 
+        self.visible = False
+
     def render(self):
-        peachy.graphics.set_color(0, 255, 0)
-        peachy.graphics.draw_line(self.x, self.y, self.x + self.width, self.y + self.height)
-    #    peachy.graphics.draw_rect(self.x, self.y, self.width, self.height)
+        return
+        # peachy.graphics.set_color(0, 255, 0)
+        # peachy.graphics.draw_line(self.x, self.y, self.x + self.width, self.y + self.height)
+        # peachy.graphics.draw_rect(self.x, self.y, self.width, self.height)

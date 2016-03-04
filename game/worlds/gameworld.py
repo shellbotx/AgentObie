@@ -2,6 +2,7 @@ import os
 import peachy
 from peachy import PC
 from game.scenes import *
+from game.utility import draw_message
 
 class GameWorld(peachy.World):
     NAME = 'game'
@@ -9,9 +10,9 @@ class GameWorld(peachy.World):
     STATE_PLAY = 'playing'
     STATE_PAUSED = 'paused'
     STATE_MESSAGE = 'message'
+    STATE_GAMEOVER = 'game-over'
 
     def __init__(self):
-        # peachy.World.__init__(self, GameWorld.NAME)
         super(GameWorld, self).__init__(GameWorld.NAME)
 
         self.state = GameWorld.STATE_PLAY
@@ -20,12 +21,14 @@ class GameWorld(peachy.World):
         self.context = peachy.graphics.Surface((320, 240))
 
     def init_new_game(self):
-        self.play_scene(PierScene)
+        self.change_scene(PierScene)
 
     def close(self):
-        self.scene.exit()
+        self.scene.clear()
 
-    def play_scene(self, scene):
+    def change_scene(self, scene):
+        if self.scene:
+            self.scene.clear()
         self.scene = scene(self)
         self.scene.load()
 
@@ -45,14 +48,18 @@ class GameWorld(peachy.World):
             peachy.graphics.draw_text('PAUSED', 136, 117)
 
         peachy.graphics.reset_context()
-        peachy.graphics.draw_image(peachy.graphics.scale(self.context, 2), 0, 0)
+        peachy.graphics.draw(peachy.graphics.scale(self.context, 2), 0, 0)
 
         # Draw text after scaling has been done
         if self.state == GameWorld.STATE_MESSAGE:
-            self.message.display()
+            # self.message.display()
+            draw_message(self.scene.player, self.message.message)
+        elif self.state == GameWorld.STATE_GAMEOVER:
+            draw_message(self.scene.player, "Game Over ... press <SPACE> to continue")
         else:
             peachy.graphics.set_color(125, 125, 125)
-            peachy.graphics.draw_text('AGENT OBIE | ALPHA 1', 0, 0)
+            peachy.graphics.draw_text('AGENT OBIE | ALPHA 3', 0, 0)
+            self.scene.draw_HUD()
 
     def update(self):
         if peachy.utils.Input.pressed('escape'):
@@ -72,4 +79,7 @@ class GameWorld(peachy.World):
             if peachy.utils.Input.pressed('space'):
                 self.message.destroy()
                 self.state = GameWorld.STATE_PLAY
-
+        elif self.state == GameWorld.STATE_GAMEOVER:
+            if peachy.utils.Input.pressed('space'):
+                self.scene.reload_stage()
+                self.state = GameWorld.STATE_PLAY

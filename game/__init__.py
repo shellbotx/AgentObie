@@ -1,5 +1,6 @@
+import os
 import peachy
-from peachy.assets import load_font
+# from peachy.assets import load_font
 from worlds import *
 
 class AgentObieEngine(peachy.Engine):
@@ -12,10 +13,9 @@ class AgentObieEngine(peachy.Engine):
         self.add_world(CinemaWorld())
 
     def preload(self):
-        font = load_font("SourceCodePro", "assets/SourceCodePro.ttf", 16)
+        font = peachy.graphics.Font("assets/SourceCodePro.ttf", 12)
         peachy.graphics.set_font(font)
 
     def exit(self):
         for world in self.worlds.value():
             self.world.close()
-

@@ -1,4 +1,19 @@
 import peachy
+
+class Image(peachy.Entity):
+    ''' Display an image for a duration, then deletes it '''
+    def __init__(self, x, y, image, duration):
+        peachy.Entity.__init__(self, x, y)
+        self.image = image
+        self.duration = duration
+
+    def render(self):
+        peachy.graphics.draw(self.image, self.x, self.y)
+
+    def update(self):
+        self.duration -= 1
+        if self.duration <= 0:
+            self.destroy()
     
 class Rect(peachy.Entity):
     def __init__(self, x, y, width=None, height=None):
@@ -25,23 +40,12 @@ def collision_resolution(entity, x, y):
         if not entity.collides(collision, x, y):
             continue
 
-            '''
-            elif collision.member_of('solid') and collision.slanted:
-                
-                # TODO fix snag at top of slope
-
-                left = collision.intersection(x)
-                right = collision.intersection(x + entity.width)
-
-                if y + entity.height > left or y + entity.height > right:
-                    if collision.y < left < right:
-                        y = left - entity.height
-                    elif collision.y < right < left:
-                        y = right - entity.height
-                    else:
-                        y = collision.y - entity.height
-                    vel_y = 0
-            '''
+        elif not entity.collides(collision, x, entity.y):
+            if y - entity.height - vel_y < collision.y and vel_y > 0:
+                y = collision.y - entity.height
+            elif y + vel_y > collision.y - collision.height and vel_y < 0:
+                y = collision.y + collision.height
+            vel_y = 0
 
         elif not entity.collides(collision, entity.x, y):
             if x - entity.width - vel_x < collision.x and vel_x > 0:
@@ -49,13 +53,6 @@ def collision_resolution(entity, x, y):
             elif x + vel_x > collision.x - collision.width and vel_x < 0:
                 x = collision.x + collision.width
             vel_x = 0
-            
-        elif not entity.collides(collision, x, entity.y):
-            if y - entity.height - vel_y < collision.y and vel_y > 0:
-                y = collision.y - entity.height
-            elif y + vel_y > collision.y - collision.height and vel_y < 0:
-                y = collision.y + collision.height
-            vel_y = 0
 
         else:
             x = entity.x
@@ -66,6 +63,18 @@ def collision_resolution(entity, x, y):
 
     collision_occurred = len(collisions) > 0
     return collision_occurred, x, y, vel_x, vel_y
+
+def draw_message(player, message):
+    HEIGHT = 64
+    y = 0
+
+    if player.y + player.height < HEIGHT:
+        y = peachy.PC.height - HEIGHT
+    
+    peachy.graphics.set_color(0, 30, 60)
+    peachy.graphics.draw_rect(0, y, peachy.PC.width, HEIGHT)
+    peachy.graphics.set_color(255, 255, 255)
+    peachy.graphics.draw_text(message, 8, y + 8)
 
 def get_line_segments(entity):
     return [ [entity.x, entity.y, entity.width, 0], 

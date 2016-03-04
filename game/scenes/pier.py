@@ -1,3 +1,4 @@
+import peachy
 from game.scenes import AgentObieScene
 from game.entities import Player, Lift
 
@@ -6,25 +7,17 @@ class PierScene(AgentObieScene):
     def __init__(self, world):
         super(PierScene, self).__init__(world)
 
+        # Load backgrounds
+        self.bga = peachy.graphics.get_image('assets/img/bg_pier.png')
+        # self.bgb = peachy.assets.get_image('assets/img/bg_pier_b')
+
     def load(self):
-        self.player = Player(80, 200)
-        self.load_tmx('assets/pier_01.tmx')
+        self.player = Player(96, 128)
+        self.load_tmx('assets/stage/pier_01.tmx')
 
-    def load_stage_OBJ(self, OBJ, stage, previous_stage):
-        if OBJ.name == 'CARGO_LIFT':
-            # TODO load custom image for cargo lift
-            start_x = OBJ.x
-            start_y = OBJ.y
+    # def load_stage_OBJ(self, OBJ, stage, previous_stage):
+    #     return super(PierScene, self).load_stage_OBJ(OBJ, stage, previous_stage)
 
-            movement = OBJ.polygon_points[1]
-            end_x = OBJ.x + movement[0]
-            end_y = OBJ.y + movement[1]
-
-            lift = Lift(start_x, start_y, end_x, end_y)
-            lift.width = 56
-            lift.height = 32
-
-            return lift
-        else:
-            return super(PierScene, self).load_stage_OBJ(OBJ, stage, previous_stage)
-
+    def render(self):
+        peachy.graphics.draw(self.bga, 0, 0)
+        super(PierScene, self).render()
