@@ -5,7 +5,7 @@ try:
     import peachy
 except ImportError:
     sys.path.append("C:/Users/Sheldon/Dropbox/Projects/Peachy")
-    print "Peachy appened to system path."
+    print("Peachy appened to system path.")
     import peachy
 
 if __name__ == "__main__":

@@ -22,8 +22,8 @@ class Lever(peachy.Entity):
 
     def pull(self):
         if not self.pulled:
-            exec self.on_pull
+            exec(self.on_pull)
             self.pulled = True
         elif not self.lock:
-            exec self.on_pull
+            exec(self.on_pull)
             self.pulled = False

@@ -126,7 +126,7 @@ class Player(peachy.Entity):
     def kill(self, cause):
         if cause.member_of('soldier-bullet'):
             # play shot animation
-            print 'SHOT DEAD'
+            print('SHOT DEAD')
         self.change_state(Player.STATE_DEAD)
 
     def render(self):

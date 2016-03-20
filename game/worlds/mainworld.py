@@ -27,9 +27,9 @@ class MainWorld(peachy.World):
         peachy.graphics.set_color(255, 255, 255)
         peachy.graphics.draw_text("AGENT OBIE | ALPHA BUILD 3", 0, 100, center=True)
 
-        for selection in xrange(len(self.selections)):
+        for selection in range(len(self.selections)):
             text = self.selections[selection]
-            text_width, _ = font.size(text)
+            _, _, text_width, _ = font.get_rect(text)
 
             x = (PC.width / 2) - text_width / 2
             y = (PC.height / 2) + (selection * 24) + (PC.height / 7)

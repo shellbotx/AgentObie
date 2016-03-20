@@ -107,7 +107,7 @@ def raycast(sx, sy, ex, ey, obstructions):
         segments = []
         try:
             segments = obstruction.segments
-        except AttributeError, IndexError:
+        except(AttributeError, IndexError):
             segments = get_line_segments(obstruction)
 
         for segment in segments:

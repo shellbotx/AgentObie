@@ -5,7 +5,7 @@ from game.entities import Player
 class PierScene(AgentObieScene):
 
     def __init__(self, world):
-        super(PierScene, self).__init__(world)
+        super().__init__(world)
 
         # Load backgrounds
         self.bga = peachy.fs.get_image('assets/img/bg_pier.png')
@@ -17,4 +17,4 @@ class PierScene(AgentObieScene):
 
     def render(self):
         peachy.graphics.draw(self.bga, 0, 0)
-        super(PierScene, self).render()
+        super().render()

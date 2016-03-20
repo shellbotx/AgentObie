@@ -24,7 +24,7 @@ class Button(peachy.Entity):
 
     def press(self):
         if self.wait_timer <= 0:
-            exec self.on_press
+            exec(self.on_press)
             self.wait_timer = Button.WAIT_TIME
 
     def update(self):

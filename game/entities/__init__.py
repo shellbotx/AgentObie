@@ -5,18 +5,18 @@ directly within its file, instead all classes are referenced from their own
 seperate modules.
 """
 
-from blocks import PushBlock
-from button import Button
-from doors import Door, LockedDoor, RetractableDoor
-from hiding_spot import HidingSpot
-from lever import Lever
-from lifts import AutoLift, ManualLift
-from pickups import Key, GadgetPickup
-from player import Player
-from rope import Rope
-from soldier import Soldier
-from solid import Solid
-from triggers import ChangeLevelTrigger, ChangeStageTrigger, ShowMessageTrigger
+from .blocks import PushBlock
+from .button import Button
+from .doors import Door, LockedDoor, RetractableDoor
+from .hiding_spot import HidingSpot
+from .lever import Lever
+from .lifts import AutoLift, ManualLift
+from .pickups import Key, GadgetPickup
+from .player import Player
+from .rope import Rope
+from .soldier import Soldier
+from .solid import Solid
+from .triggers import ChangeLevelTrigger, ChangeStageTrigger, ShowMessageTrigger
 
 import peachy
 from peachy import PC

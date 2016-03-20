@@ -1,7 +1,7 @@
 import os
 
 import peachy
-from peachy import PC, Scene
+from peachy import DEBUG, PC, Scene
 from peachy.utils import Point
 
 from game.entities import *
@@ -203,7 +203,7 @@ class AgentObieScene(Scene):
             try:
                 on_pull = OBJ.properties['ON_PULL']
             except KeyError:
-                print '[WARN] no pull operation found for lever'
+                DEBUG('[WARN] no pull operation found for lever')
                 pass
             try:
                 lock = OBJ.properties['LOCK']
@@ -286,7 +286,7 @@ class AgentObieScene(Scene):
             self.world.state = 'game-over'
             return
 
-        super(AgentObieScene, self).update()
+        super().update()
     
     def render(self):
         self.camera.snap(self.player.x, self.player.y, True)
@@ -295,14 +295,14 @@ class AgentObieScene(Scene):
         for layer in self.background_layers:
             self.stage.render_layer(layer)
 
-        super(AgentObieScene, self).render()
+        super().render()
 
         for layer in self.foreground_layers:
             self.stage.render_layer(layer)
 
-from pier import PierScene
-from sewer import SewerScene
-from tests import *
+from .pier import PierScene
+from .sewer import SewerScene
+from .tests import *
 
 def scene_from_string(name):
     name = name.lower()
@@ -311,4 +311,4 @@ def scene_from_string(name):
     elif name == 'sewer':
         return SewerScene
     else:
-        print 'SCENE NOT FOUND {0}'.format(name)
+        DEBUG('SCENE NOT FOUND {0}'.format(name))

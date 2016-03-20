@@ -1,36 +1,39 @@
 import sys
-from peachy import PC
-
 from game import AgentObieEngine
 from game.scenes import *
 from game.worlds import *
-
-def init(test_name):
-    AgentObieEngine(True)
-    PC.set_title('TEST ' + test_name)
 
 if __name__ == "__main__":
     try:
         arg = sys.argv[1]
         name = sys.argv[2]
         
-        AgentObieEngine(True)
-        PC.engine.set_title('TEST ' + name)
+        game = AgentObieEngine(True)
+        game.set_title('TEST ' + name)
+        game.preload()
 
         if arg == '-D':
-            world = PC.engine.change_world(GameWorld.NAME)
+            world = game.change_world(GameWorld.NAME)
             world.change_scene(TestScene)
             world.scene.load_tmx('assets/' + name)
 
+            try:
+                px = int(sys.argv[3])
+                py = int(sys.argv[4])
+                world.scene.player.x = px
+                world.scene.player.y = py
+            except IndexError:
+                pass
+
         elif arg == '-L':
-            world = PC.engine.change_world(GameWorld.NAME)
+            world = game.change_world(GameWorld.NAME)
 
             if name == 'LIGHT':
                 world.change_scene(LightingScene)
             else:
                 world.change_scene(TestScene)
 
-        PC.engine.run()
+        game.run()
 
     except IndexError:
-        print 'Invalid argument passed'
+        print('Invalid argument passed')

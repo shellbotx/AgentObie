@@ -13,7 +13,6 @@ class CinemaWorld(peachy.World):
             self.scene = Scene01()
         elif scene_name == 'TEST':
             self.scene = TestScene()
-        print 'scene'
 
     def render(self):
         self.scene.render()

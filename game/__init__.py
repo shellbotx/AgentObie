@@ -1,7 +1,7 @@
 import os
 import peachy
 from peachy import PC
-from worlds import *
+from .worlds import *
 
 class AgentObieEngine(peachy.Engine):
 

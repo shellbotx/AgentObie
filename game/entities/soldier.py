@@ -8,7 +8,7 @@ from game.utility import collision_resolution, get_line_segments, \
                          line_line_collision, raycast, solid_below, \
                          Image
 
-from player import Player
+from .player import Player
 
 GRAVITY = 0.2
 MAX_GRAVITY = 9
@@ -91,7 +91,7 @@ class Soldier(peachy.Entity):
         self.spotted_at = None
 
         orig = (4, 2)
-        self.sprite = graphics.SpriteMap(peachy.graphics.get_image('SoldierSprite'), 18, 18)
+        self.sprite = graphics.SpriteMap(peachy.fs.get_image('SoldierSprite'), 18, 18)
         self.sprite.add('IDLE', [0], origin=orig)
         self.sprite.add('RUN', [5, 6, 7, 8, 9, 10, 11, 12], 4, True, origin=orig)
 
@@ -297,7 +297,7 @@ class Soldier(peachy.Entity):
         points = []
         points.append((cx, cy))
 
-        for degree in xrange(angle, angle + 61, 3):
+        for degree in range(angle, angle + 61, 6):
             rad = math.radians(degree)
             dx = math.cos(rad)
             dy = math.sin(rad)
