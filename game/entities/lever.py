@@ -11,7 +11,8 @@ class Lever(peachy.Entity):
         self.on_pull = on_pull
         self.lock = lock
 
-        self.sprite = peachy.utils.splice_image('assets/img/lever.png', 10, 10)
+        self.sprite = peachy.graphics.splice(
+                peachy.fs.get_image('assets/img/lever.png'), 10, 10)
 
     def render(self):
         if self.pulled:

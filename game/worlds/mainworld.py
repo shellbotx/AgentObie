@@ -1,6 +1,5 @@
 import peachy
 from peachy import PC
-# from peachy.assets import get_font
 from peachy.utils import Input
 
 NEW = 0
@@ -17,9 +16,6 @@ class MainWorld(peachy.World):
         self.selections = [ "PLAY GAME", "EXIT" ]
 
     def start_new(self):
-        return
-
-    def load(self):
         return
 
     def render(self):

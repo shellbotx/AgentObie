@@ -2,12 +2,12 @@ import peachy
 
 class Key(peachy.Entity):
     
-    def __init__(self, x, y, link):
+    def __init__(self, x, y, tag):
         peachy.Entity.__init__(self, x, y)
         self.group = 'pickup key'
         self.width = 8
         self.height = 8
-        self.link = link
+        self.tag = tag
 
     def render(self):
         peachy.graphics.set_color(255, 255, 0)

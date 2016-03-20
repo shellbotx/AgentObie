@@ -4,7 +4,6 @@ import peachy
 from peachy import PC, Scene
 from peachy.utils import Point
 
-import game.entities
 from game.entities import *
 
 class AgentObieScene(Scene):
@@ -22,14 +21,21 @@ class AgentObieScene(Scene):
         self.camera.max_width = 320
         self.camera.max_height = 240
 
+        self.unlocked_doors = []
+
     def draw_HUD(self):
         peachy.graphics.set_color(255, 255, 255)
-        if self.player.gadget.name == 'INVS':
-            peachy.graphics.draw_text('INVS', 0, 12)
-        else:
-            peachy.graphics.draw_text('NONE', 0, 12)
-        
 
+        # Draw keys
+        peachy.graphics.draw_text("KEYS: {0}".format(self.player.key_count), 0, 12)
+
+        # Draw gadget detail
+        if self.player.gadget.name == 'INVS':
+            peachy.graphics.draw_text('INVS', 0, 24)
+        else:
+            peachy.graphics.draw_text('NONE', 0, 24)
+        
+        # Draw gadget timer
         time = str(round(float(self.player.gadget.timer) / 60.0, 1))
         x = (self.player.x + self.player.width + 4) * 2
         y = (self.player.y + 4) * 2
@@ -124,7 +130,7 @@ class AgentObieScene(Scene):
 
         elif OBJ.name == 'CHANGE_LEVEL':
             link = OBJ.properties['LINK']
-            return LevelChangeTrigger(OBJ.x, OBJ.y, OBJ.w, OBJ.h, link)
+            return ChangeLevelTrigger(OBJ.x, OBJ.y, OBJ.w, OBJ.h, link)
 
         elif OBJ.name == 'CHANGE_STAGE':
             link = OBJ.properties['LINK']
@@ -152,23 +158,29 @@ class AgentObieScene(Scene):
                 self.player.x = sx
                 self.player.y = sy
 
-            return StageChangeTrigger(OBJ.x, OBJ.y, OBJ.w, OBJ.h, link)
+            return ChangeStageTrigger(OBJ.x, OBJ.y, OBJ.w, OBJ.h, link)
+
         elif OBJ.name == 'DOOR':
             link = OBJ.properties['LINK']
             if os.path.basename(link) == previous_stage:
                 self.player.x = OBJ.x
                 self.player.y = OBJ.y
             return Door(OBJ.x, OBJ.y, link)
+
         elif OBJ.name == 'GADGET_INVISIBLE' or \
              OBJ.name == 'GADGET_STUN' or \
              OBJ.name == 'GADGET_TIME':
             gadget_type = OBJ.name[7:]
             return GadgetPickup(OBJ.x, OBJ.y, gadget_type)
+
         elif OBJ.name == 'HIDING_SPOT':
             return HidingSpot(OBJ.x, OBJ.y, OBJ.w, OBJ.h)
+
         elif OBJ.name == 'KEY':
-            link = OBJ.properties['LINK']
-            return Key(OBJ.x, OBJ.y, link)
+            tag = OBJ.properties['TAG']
+            if tag not in self.player.obtained_keys:
+                return Key(OBJ.x, OBJ.y, tag)
+
         elif OBJ.name == 'LIFT_C':
             nodes = []
 
@@ -177,11 +189,13 @@ class AgentObieScene(Scene):
                 point.y += OBJ.y
                 nodes.append(point)
 
-            c_lift = ControlledLift(nodes, OBJ.w, OBJ.h)
-            return c_lift
+            return ManualLift(nodes, OBJ.w, OBJ.h)
+
         elif OBJ.name == 'LOCKED_DOOR':
-            link = OBJ.properties['LINK']
-            return  LockedDoor(OBJ.x, OBJ.y, OBJ.w, OBJ.h, link)
+            tag = OBJ.properties['TAG']
+            if tag not in self.unlocked_doors:
+                return LockedDoor(OBJ.x, OBJ.y, OBJ.w, OBJ.h, tag)
+
         elif OBJ.name == 'LEVER':
             on_pull = ''
             lock = False
@@ -201,13 +215,16 @@ class AgentObieScene(Scene):
         elif OBJ.name == 'MESSAGE_BOX':
             message = OBJ.properties['MESSAGE']
             return MessageBox(OBJ.x, OBJ.y, message)
+
         elif OBJ.name == 'RETRACT':
             return RetractableDoor(OBJ.x, OBJ.y, OBJ.w, OBJ.h)
         elif OBJ.name == 'ROPE' or OBJ.name == 'LADDER':
             return Rope(OBJ.x, OBJ.y, OBJ.w, OBJ.h)
+
         elif OBJ.name == 'SHOW_MESSAGE':
             message = OBJ.properties['MESSAGE']
-            return MessageTrigger(OBJ.x, OBJ.y, OBJ.w, OBJ.h, message)
+            return ShowMessageTrigger(OBJ.x, OBJ.y, OBJ.w, OBJ.h, message)
+
         elif OBJ.name == 'SOLDIER':
             stationary = False
             try:

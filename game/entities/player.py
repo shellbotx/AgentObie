@@ -38,7 +38,7 @@ class Player(peachy.Entity):
         self.state_args = {}
 
         self.sprite = graphics.SpriteMap(
-            peachy.graphics.get_image('assets/img/obie.png'), 16, 16)
+            peachy.fs.get_image('PlayerSprite'), 16, 16)
 
         os=(4, 4)  # origin_standard
         oc=(4, 8)  # origin_crouch
@@ -57,8 +57,10 @@ class Player(peachy.Entity):
         self.sprite.play('IDLE')
 
         self.gadget = Gadget(self)
-        self.keys = []
         self.invisible = False
+
+        self.obtained_keys = []
+        self.key_count = 0
 
     def change_gadget(self, gadget_name):
         if gadget_name == 'INVISIBLE':
@@ -293,7 +295,8 @@ class Player(peachy.Entity):
                     if pickup.member_of('gadget'):
                         self.change_gadget(pickup.gadget)
                     elif pickup.member_of('key'):
-                        self.keys.append(pickup.link)
+                        self.obtained_keys.append(pickup.tag)
+                        self.key_count += 1
                         pickup.destroy()
 
             # Gadget
@@ -493,7 +496,9 @@ class Player(peachy.Entity):
         lock = self.collides_group('locked-door', temp_x, temp_y)
         if lock:
             lock = lock[0]
-            if lock.link in self.keys:
+            if self.key_count > 0:
+                self.key_count -= 1
+                self.container.unlocked_doors.append(lock.tag)
                 lock.destroy()
 
         # FINALIZE

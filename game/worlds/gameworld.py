@@ -33,7 +33,7 @@ class GameWorld(peachy.World):
         self.scene.load()
 
     def render(self):
-        peachy.graphics.set_context(self.context)
+        peachy.graphics.set_context(self.context)  # Open scale
         peachy.graphics.set_color(0, 0, 0)
         peachy.graphics.draw_rect(*self.context.get_rect())
 
@@ -44,21 +44,21 @@ class GameWorld(peachy.World):
             peachy.graphics.draw_rect(0, 0, PC.width / 2, 50)
             peachy.graphics.draw_rect(0, PC.height / 2 - 50, PC.width / 2, 50)
 
-            peachy.graphics.set_color(255, 255, 255)
-            peachy.graphics.draw_text('PAUSED', 136, 117)
 
-        peachy.graphics.reset_context()
+        peachy.graphics.reset_context()     # Close scale
         peachy.graphics.draw(peachy.graphics.scale(self.context, 2), 0, 0)
 
         # Draw text after scaling has been done
+        if self.state == GameWorld.STATE_PAUSED:
+            peachy.graphics.set_color(255, 255, 255)
+            peachy.graphics.draw_text('PAUSE', 136, 117, font=peachy.fs.resources['FiraMono'])
         if self.state == GameWorld.STATE_MESSAGE:
-            # self.message.display()
             draw_message(self.scene.player, self.message.message)
         elif self.state == GameWorld.STATE_GAMEOVER:
             draw_message(self.scene.player, "Game Over ... press <SPACE> to continue")
         else:
             peachy.graphics.set_color(125, 125, 125)
-            peachy.graphics.draw_text('AGENT OBIE | ALPHA 3', 0, 0)
+            peachy.graphics.draw_text('AGENT OBIE | ALPHA 4', 0, 0)
             self.scene.draw_HUD()
 
     def update(self):

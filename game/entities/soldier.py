@@ -3,7 +3,6 @@ import math
 import peachy
 from peachy import PC
 from peachy import graphics
-from peachy.utils import splice_image
 
 from game.utility import collision_resolution, get_line_segments, \
                          line_line_collision, raycast, solid_below, \
@@ -92,7 +91,7 @@ class Soldier(peachy.Entity):
         self.spotted_at = None
 
         orig = (4, 2)
-        self.sprite = graphics.SpriteMap(peachy.graphics.get_image('assets/img/soldier.png'), 18, 18)
+        self.sprite = graphics.SpriteMap(peachy.graphics.get_image('SoldierSprite'), 18, 18)
         self.sprite.add('IDLE', [0], origin=orig)
         self.sprite.add('RUN', [5, 6, 7, 8, 9, 10, 11, 12], 4, True, origin=orig)
 
@@ -352,8 +351,8 @@ class Soldier(peachy.Entity):
 class AlertAnimation(Image):
 
     def __init__(self, soldier):
-        soldier_spritesheet = peachy.graphics.get_image('assets/img/soldier.png')
-        alert_icon = splice_image(soldier_spritesheet, 18, 18)[3]
+        soldier_spritesheet = peachy.fs.get_image('SoldierSprite')
+        alert_icon = graphics.splice(soldier_spritesheet, 18, 18)[3]
         super(AlertAnimation, self).__init__(soldier.x, soldier.y, alert_icon, 20)
         self.soldier = soldier
 

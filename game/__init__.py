@@ -1,6 +1,6 @@
 import os
 import peachy
-# from peachy.assets import load_font
+from peachy import PC
 from worlds import *
 
 class AgentObieEngine(peachy.Engine):
@@ -13,8 +13,14 @@ class AgentObieEngine(peachy.Engine):
         self.add_world(CinemaWorld())
 
     def preload(self):
-        font = peachy.graphics.Font("assets/SourceCodePro.ttf", 12)
-        peachy.graphics.set_font(font)
+        peachy.fs.load_font('SourceCodePro@12', 'assets/SourceCodePro.ttf', 12)
+        peachy.fs.load_font('SourceCodePro@16', 'assets/SourceCodePro.ttf', 16)
+        peachy.fs.load_font('FiraMono', 'assets/FiraMono-Medium.ttf', 16)
+
+        peachy.fs.load_image('PlayerSprite', 'assets/img/obie.png')
+        peachy.fs.load_image('SoldierSprite', 'assets/img/soldier.png')
+
+        peachy.graphics.set_font(peachy.fs.resources['SourceCodePro@16'])
 
     def exit(self):
         for world in self.worlds.value():

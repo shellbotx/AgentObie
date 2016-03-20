@@ -1,6 +1,7 @@
 import peachy
 from peachy import PC
 
+
 class Trigger(peachy.Entity):
 
     def __init__(self, x, y, width, height):
@@ -10,13 +11,24 @@ class Trigger(peachy.Entity):
         self.height = height
         self.visible = False
 
-class LevelChangeTrigger(Trigger):
+
+class ChangeLevelTrigger(Trigger):
+
     def __init__(self, x, y, width, height, link):
         Trigger.__init__(self, x, y, width, height)
         self.group = 'trigger level-change'
         self.link = link
 
-class MessageTrigger(Trigger):
+
+class ChangeStageTrigger(Trigger):
+
+    def __init__(self, x, y, width, height, link):
+        Trigger.__init__(self, x, y, width, height)
+        self.group = 'trigger stage-change'
+        self.link = link
+
+
+class ShowMessageTrigger(Trigger):
 
     def __init__(self, x, y, width, height, message):
         Trigger.__init__(self, x, y, width, height)
@@ -37,11 +49,3 @@ class MessageTrigger(Trigger):
         peachy.graphics.draw_rect(0, y, PC.width, HEIGHT)
         peachy.graphics.set_color(255, 255, 255)
         peachy.graphics.draw_text(self.message, 8, y + 8)
-
-class StageChangeTrigger(Trigger):
-
-    def __init__(self, x, y, width, height, link):
-        Trigger.__init__(self, x, y, width, height)
-        self.group = 'trigger stage-change'
-        self.link = link
-

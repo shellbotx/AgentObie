@@ -17,13 +17,13 @@ class Door(peachy.Entity):
 
 class LockedDoor(peachy.Entity):
     
-    def __init__(self, x, y, width, height, link):
+    def __init__(self, x, y, width, height, tag):
         peachy.Entity.__init__(self, x, y)
         self.group = 'locked-door'
         self.solid = True
         self.width = width
         self.height = height
-        self.link = link
+        self.tag = tag
 
     def render(self):
         peachy.graphics.set_color(255, 255, 0)

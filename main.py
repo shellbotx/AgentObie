@@ -1,7 +1,12 @@
 import sys
-from peachy import PC
 from game import AgentObieEngine
-from game.scenes.pier import PierScene
+
+try:
+    import peachy
+except ImportError:
+    sys.path.append("C:/Users/Sheldon/Dropbox/Projects/Peachy")
+    print "Peachy appened to system path."
+    import peachy
 
 if __name__ == "__main__":
     debug = False
@@ -13,5 +18,4 @@ if __name__ == "__main__":
         pass
 
     game = AgentObieEngine(debug)
-    # game.world.play_scene(PierScene(game.world))
     game.run()

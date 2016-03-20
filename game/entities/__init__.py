@@ -1,64 +1,28 @@
+""" 
+The entities module includes all entity classes to allow for easy and quick
+access from exterior modules. The entities module does not contain any classes
+directly within its file, instead all classes are referenced from their own
+seperate modules.
+"""
+
+from blocks import PushBlock
+from button import Button
+from doors import Door, LockedDoor, RetractableDoor
+from hiding_spot import HidingSpot
+from lever import Lever
+from lifts import AutoLift, ManualLift
+from pickups import Key, GadgetPickup
+from player import Player
+from rope import Rope
+from soldier import Soldier
+from solid import Solid
+from triggers import ChangeLevelTrigger, ChangeStageTrigger, ShowMessageTrigger
+
 import peachy
 from peachy import PC
 
-from player import Player
-from solid import Solid
-from rope import Rope
-from soldier import Soldier
-from blocks import PushBlock
-from lever import Lever
-from doors import Door, LockedDoor, RetractableDoor
-from pickups import Key, GadgetPickup
-from triggers import *
-from lifts import *
-
-
-class Button(peachy.Entity):
-
-    WAIT_TIME = 5 * 60
-
-    def __init__(self, x, y, on_press):
-        super(Button, self).__init__(x, y)
-        self.group = 'interact button'
-        self.width = 16
-        self.height = 16
-
-        self.sprite = peachy.utils.splice_image('assets/img/button.png', 8, 8)
-
-        self.on_press = on_press
-        self.wait_timer = 0
-    
-    def render(self):
-        if self.wait_timer > 0: 
-            peachy.graphics.draw(self.sprite[0], self.x, self.y)
-        else:
-            peachy.graphics.draw(self.sprite[1], self.x, self.y)
-
-    def press(self):
-        if self.wait_timer <= 0:
-            exec self.on_press
-            self.wait_timer = Button.WAIT_TIME
-
-    def update(self):
-        if self.wait_timer > 0:
-            self.wait_timer -= 1
-
-
-class HidingSpot(peachy.Entity):
-
-    def __init__(self, x, y, width, height):
-        peachy.Entity.__init__(self, x, y)
-        self.group = 'hiding-spot interact'
-        self.width = width
-        self.height = height
-        self.visible = False
-
-    def render(self):
-        peachy.graphics.set_color(0, 0, 0)
-        peachy.graphics.draw_rect(self.x, self.y, self.width, self.height)
-
-
 class MessageBox(peachy.Entity):
+    # TODO move this class elsewhere
     
     def __init__(self, x, y, message):
         peachy.Entity.__init__(self, x, y)
