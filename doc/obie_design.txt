@@ -1,0 +1,26 @@
+Guard Dogs
+-> Can smell the player thus rendering invisibility useless
+-> 
+
+
+Soldiers
+-> Alert other soldier on gunshot
+-> Randomize between white and black soldiers
+
+
+Level Two
+-> Juggle between two gadgets
+-> Invisibility and Flash grenade
+-> Flash grenades are thrown and will blind enemies in their blast
+  -> Soldiers and Dogs will 
+-> PortalGadget
+  -> Lay down one gadget
+  -> On second use, get teleported back to where the first gadget was placed
+-> Lockpicking 
+
+
+Level Three
+-> TimeSlower gadget
+-> Moving platforms
+-> Security Cameras
+-> Acid

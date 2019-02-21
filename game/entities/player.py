@@ -1,17 +1,20 @@
 import peachy
-from peachy import graphics
-from peachy.utils import Input
-from game.utility import *
+import peachy.geo
+from peachy import graphics, PC
+from peachy.collision import collides_solid, collides_group, rect_rect
+from peachy.utils import Key
+from game import config
+from game.utility import collision_resolution, solid_below, solid_left, \
+    solid_right
+from . import gadgets
 
-GRAVITY = 0.2
-MAX_GRAVITY = 9
 
-class Player(peachy.Entity):
+class Player(peachy.Entity, peachy.geo.Rect):
 
-    SPEED = 1
-    SPEED_FAST = 1.5
+    SPEED = 0.75
+    SPEED_FAST = 2.5
     SPEED_SLOW = 0.5
-    JUMP_FORCE = 3
+    JUMP_FORCE = 2.5
 
     STATE_STANDARD = 'standard'
     STATE_CLIMBING = 'climb'
@@ -20,60 +23,50 @@ class Player(peachy.Entity):
     STATE_HIDDEN = 'hidden'
     STATE_LEDGEGRAB = 'ledge-grab'
     STATE_PUSHING = 'push'
-    
+
     WIDTH = 8
     HEIGHT_STANDARD = 12
     HEIGHT_CROUCH = 8
 
     def __init__(self, x, y):
-        super(Player, self).__init__(x, y)
+        peachy.Entity.__init__(self)
+        peachy.geo.Rect.__init__(
+            self, x, y, Player.WIDTH, Player.HEIGHT_STANDARD)
 
         self.name = 'player'
-        self.group = 'liftable opaque'
-        self.width = Player.WIDTH
-        self.height = Player.HEIGHT_STANDARD
+        self.group = 'player liftable'
+
         self.facing_x = 1
+        self.velocity_x = 0
+        self.velocity_y = 0
 
         self.state = Player.STATE_STANDARD
         self.state_args = {}
 
-        self.sprite = graphics.SpriteMap(
-            peachy.fs.get_image('PlayerSprite'), 16, 16)
-
-        os=(4, 4)  # origin_standard
-        oc=(4, 8)  # origin_crouch
-        self.sprite.add('IDLE', [0], origin=os)
-        self.sprite.add('RUN', [10, 11, 12, 13, 14, 15, 16, 17, 18, 19], 4, True, origin=os)
-        self.sprite.add('JUMP', [19], origin=os)
-        self.sprite.add('FALL', [1], origin=os)
-        self.sprite.add('PUSH', [2], origin=os)
-        self.sprite.add('CROUCH', [20], origin=oc)
-        self.sprite.add('CRAWL', [20, 21, 22, 23, 24, 25], 5, True, origin=oc)
-        self.sprite.add('HANG', [3], origin=(4, 0))
-        self.sprite.add('INVISIBLE', [4], origin=os)
-        self.sprite.add('HIDDEN', [5], origin=os)
-        self.sprite.add('TODO', [9])
-
+        self.sprite = PC().resources.get_resource_by_name('ObieSprite')
         self.sprite.play('IDLE')
+        self.walking_sound = PC().resources.get_resource_by_name(
+            'FootstepSound')
 
-        self.gadget = Gadget(self)
+        self.gadget = gadgets.Gadget(self, '')
         self.invisible = False
 
         self.obtained_keys = []
         self.key_count = 0
 
+        self.order = 1
+
     def change_gadget(self, gadget_name):
-        if gadget_name == 'INVISIBLE':
-            self.gadget = InvisibilityCloak(self)
-        elif gadget_name == 'STUN':
-            self.gadget = StunBomb(self)
-        elif gadget_name == 'TIME':
-            self.gadget = TimeDisruptor(self)
+        self.gadget.stop()
+        self.gadget = gadgets.from_name(gadget_name, self)
 
     def change_state(self, state, **kwargs):
         self.state_args = kwargs
 
-        if self.gadget.name != InvisibilityCloak.NAME or self.gadget.state != Gadget.STATE_ACTIVE:
+        self.walking_sound.stop()
+
+        if self.gadget.name != gadgets.InvisibilityCloak.NAME or \
+           self.gadget.state != gadgets.Gadget.STATE_ACTIVE:
             self.invisible = False
 
         if state == Player.STATE_STANDARD:
@@ -124,19 +117,33 @@ class Player(peachy.Entity):
         self.state = state
 
     def kill(self, cause):
-        if cause.member_of('soldier-bullet'):
-            # play shot animation
+        # TODO play Player death animation
+        if cause.member_of('bullet'):
             print('SHOT DEAD')
+        elif cause.member_of('dog'):
+            print('GOT BIT')
+        elif cause.member_of('pitfall'):
+            print('YOU FELL TO YOUR DEATH')
+        else:
+            print('DEAD')
+
+        self.gadget.stop()
         self.change_state(Player.STATE_DEAD)
 
     def render(self):
         flip_x = self.facing_x == -1
+        self.order = 1
 
         if self.invisible:
             if self.state == Player.STATE_HIDDEN:
                 self.sprite.play('HIDDEN', flip_x)
+                self.order = -1
             else:
-                self.sprite.play('INVISIBLE', flip_x)
+                if self.velocity_x != 0:
+                    self.sprite.play('INVISIBLE_RUN', flip_x)
+                else:
+                    self.sprite.play('INVISIBLE', flip_x)
+
         elif self.state == Player.STATE_STANDARD:
             if self.velocity_y == 0 and not solid_below(self, self.x, self.y):
                 self.sprite.play('JUMP', flip_x)
@@ -148,21 +155,40 @@ class Player(peachy.Entity):
                 self.sprite.play('RUN', flip_x)
             else:
                 self.sprite.play('IDLE', flip_x)
+
+        elif self.state == Player.STATE_CLIMBING:
+            if self.state_args['vertical']:
+                if self.velocity_y != 0:
+                    self.sprite.play('CLIMB_LADDER')
+                    self.sprite.resume()
+                else:
+                    self.sprite.play('CLIMB_LADDER')
+                    self.sprite.pause()
+            else:
+                graphics.set_color(125, 125, 125)
+                graphics.draw_entity_rect(self)
+                self.gadget.render()
+                return
+
         elif self.state == Player.STATE_CROUCHING:
             if self.velocity_x != 0:
                 self.sprite.play('CRAWL', flip_x)
             else:
-                self.sprite.play('CROUCH', flip_x) 
+                self.sprite.play('CROUCH', flip_x)
+
         elif self.state == Player.STATE_LEDGEGRAB:
             self.sprite.play('HANG', flip_x)
+
         elif self.state == Player.STATE_PUSHING:
             self.sprite.play('PUSH', flip_x)
-        else:
+
+        else:  # Default
             graphics.set_color(125, 125, 125)
-            graphics.draw_rect(self.x, self.y, self.width, self.height)
+            graphics.draw_entity_rect(self)
             self.gadget.render()
             return
-        if Input.down('g'):
+
+        if Key.down('g'):
             graphics.set_color(125, 125, 125)
             graphics.draw_rect(self.x, self.y, self.width, self.height)
             self.gadget.render()
@@ -175,23 +201,25 @@ class Player(peachy.Entity):
         temp_x = self.x
         temp_y = self.y
         has_solid_below = solid_below(self, self.x, self.y)
-        
-        keydown_up = Input.down('up')
-        keydown_down = Input.down('down')
-        keydown_left = Input.down('left')
-        keydown_right = Input.down('right')
-        keydown_run = Input.down('lshift') or Input.down('rshift')
-        keypressed_up = Input.pressed('up')
-        keypressed_down = Input.pressed('down')
-        keypressed_left = Input.pressed('left')
-        keypressed_right = Input.pressed('right')
-        keypressed_jump = Input.pressed('space')
-        keypressed_gadget = Input.pressed('x')
+
+        # Key polling
+        keydown_up = Key.down('up')
+        keydown_down = Key.down('down')
+        keydown_left = Key.down('left')
+        keydown_right = Key.down('right')
+        keydown_run = False  # Key.down('lshift')
+        keypressed_up = Key.pressed('up')
+        keypressed_down = Key.pressed('down')
+        keypressed_left = Key.pressed('left')
+        keypressed_right = Key.pressed('right')
+        keypressed_jump = Key.pressed('space')
+        keypressed_gadget = Key.pressed('x')
 
         if self.state == Player.STATE_STANDARD:
             # Run/Walk
             if keydown_left == keydown_right:
                 self.velocity_x = 0
+                self.walking_sound.stop()
             else:
                 if keydown_left:
                     if keydown_run:
@@ -206,12 +234,24 @@ class Player(peachy.Entity):
                         self.velocity_x = Player.SPEED
                     self.facing_x = 1
 
-                block = self.collides_group('block', temp_x + self.velocity_x, self.y)
+                # Play walking sound effect
+                if has_solid_below:
+                    self.walking_sound.play(-1)
+                else:
+                    self.walking_sound.stop()
+
+                # Push block
+                block = peachy.collision.collides_group(
+                    self.container, 'block',
+                    self.at_point(temp_x + self.velocity_x, self.y)
+                )
                 if len(block) == 1 and has_solid_below:
                     block = block[0]
                     block_temp_x = block.x + self.velocity_x
 
-                    if not block.collides_solid(block_temp_x, block.y):
+                    if not peachy.collision.collides_solid(
+                            self.container,
+                            block.at_point(block_temp_x, block.y)):
                         self.change_state(Player.STATE_PUSHING, block=block)
                         if self.x < block.x:
                             self.x = block.x - self.width
@@ -221,7 +261,7 @@ class Player(peachy.Entity):
 
             # Jump
             if keypressed_jump and has_solid_below:
-               self.velocity_y = -Player.JUMP_FORCE
+                self.velocity_y = -Player.JUMP_FORCE
 
             # Wall Grab
             if self.velocity_y < 4 and self.velocity_y > 0:
@@ -248,14 +288,14 @@ class Player(peachy.Entity):
                         test.x = ledge.x
                     elif test.x >= ledge.x + ledge.width:
                         test.x = ledge.x + ledge.width - test.width
-                    
-                    if not test.collides_solid():
+
+                    if not collides_solid(self.container, test):
                         self.change_state(Player.STATE_LEDGEGRAB, ledge=ledge)
                         return
 
             # Interact
             if keydown_up:
-                interactables = self.collides_group('interact')
+                interactables = collides_group(self.container, 'interact', self)
                 for interact in interactables:
                     if interact.member_of('rope'):
                         vertical = False
@@ -265,32 +305,55 @@ class Player(peachy.Entity):
                             vertical = False
 
                         self.change_state(Player.STATE_CLIMBING,
-                                handle=interact, vertical=vertical)
+                                          handle=interact, vertical=vertical)
+
+                        interact.attach(self)
+                        return
+
+                    elif interact.member_of('ladder'):
+                        self.x = interact.x
+                        self.change_state(Player.STATE_CLIMBING,
+                                          handle=interact, vertical=True)
                         return
 
                     elif keypressed_up:
-                        if interact.member_of('door'):
-                            if self.gadget.state == Gadget.STATE_ACTIVE:
+                        if interact.member_of('button'):
+                            interact.press()
+
+                        elif interact.member_of('door'):
+                            if self.gadget.state == gadgets.Gadget.STATE_ACTIVE:
                                 self.gadget.cancel()
                             interact.enter()
 
-                        elif interact.member_of('button'):
-                            interact.press()
-
                         elif interact.member_of('lever'):
                             interact.pull()
-                        
+
                         elif interact.member_of('hiding-spot'):
-                            self.change_state(Player.STATE_HIDDEN, hiding_spot=interact)
+                            self.change_state(Player.STATE_HIDDEN,
+                                              hiding_spot=interact)
                             return
-                        
+
                         elif interact.member_of('message-box'):
                             interact.activate()
                             return
 
+            # Climb down ladder
+            if keypressed_down:
+                ladder = collides_group(self.container, 'ladder',
+                                        self.at_point(self.x, self.y + 1))
+                if ladder:
+                    ladder = ladder[0]
+                    if self.y + self.height < ladder.y + ladder.height:
+                        self.x = ladder.x
+                        if self.y < ladder.y:
+                            self.y = ladder.y
+                        self.change_state(Player.STATE_CLIMBING,
+                                          handle=ladder, vertical=True)
+                        return
+
             # Pickup
             if keypressed_up:
-                pickups = self.collides_group('pickup')
+                pickups = collides_group(self.container, 'pickup', self)
                 for pickup in pickups:
                     if pickup.member_of('gadget'):
                         self.change_gadget(pickup.gadget)
@@ -299,18 +362,14 @@ class Player(peachy.Entity):
                         self.key_count += 1
                         pickup.destroy()
 
-            # Gadget
-            if keypressed_gadget:
-                self.gadget.use()
-
             # Crouching
             if keypressed_down and has_solid_below:
                 self.change_state(Player.STATE_CROUCHING)
                 return
 
             # Gravity
-            if self.velocity_y < MAX_GRAVITY:
-                self.velocity_y += GRAVITY
+            if self.velocity_y < config.MAX_GRAVITY:
+                self.velocity_y += config.GRAVITY
 
         elif self.state == Player.STATE_CLIMBING:
             if keypressed_jump:
@@ -330,11 +389,17 @@ class Player(peachy.Entity):
                             self.velocity_y = -Player.SPEED_SLOW
                         else:
                             self.velocity_y = 0
+                            if handle.member_of('ladder'):
+                                self.y = handle.y - self.height
+                                self.change_state(Player.STATE_STANDARD)
+                                return
                     if keydown_down:
                         if self.y + self.height < handle.y + handle.height:
                             self.velocity_y = Player.SPEED_SLOW
                         else:
                             self.velocity_y = 0
+                            self.change_state(Player.STATE_STANDARD)
+                            return
             else:
                 if keypressed_down:
                     self.change_state(Player.STATE_STANDARD)
@@ -373,21 +438,23 @@ class Player(peachy.Entity):
                         ledge = ledges[0]
 
                         if self.velocity_x > 0:
-                            test = Rect(ledge.x + ledge.width, ledge.y, 
+                            test = Rect(ledge.x + ledge.width, ledge.y,
                                         self.width, Player.HEIGHT_STANDARD)
                         else:
                             test = Rect(ledge.x - self.width, ledge.y,
                                         self.width, Player.HEIGHT_STANDARD)
 
                         test.container = self.container
-                            
-                        if not test.collides_solid():
+
+                        if not collides_solid(self.container, test):
                             self.x = test.x
-                            self.change_state(Player.STATE_LEDGEGRAB, ledge=ledge)
+                            self.facing_x *= -1
+                            self.change_state(Player.STATE_LEDGEGRAB,
+                                              ledge=ledge)
                             return
                     except IndexError:
                         pass
-            
+
             attempt_stand = False
 
             if keypressed_jump and has_solid_below:
@@ -398,8 +465,10 @@ class Player(peachy.Entity):
 
             if attempt_stand:
                 self.height = Player.HEIGHT_STANDARD
-                temp_y = self.y - abs(Player.HEIGHT_STANDARD - Player.HEIGHT_CROUCH)
-                if self.collides_solid(self.x, temp_y):
+                temp_y = self.y - \
+                    abs(Player.HEIGHT_STANDARD - Player.HEIGHT_CROUCH)
+                if collides_solid(self.container,
+                                  self.at_point(self.x, temp_y)):
                     self.height = Player.HEIGHT_CROUCH
                     temp_y = self.y
                     self.velocity_y = 0
@@ -408,7 +477,7 @@ class Player(peachy.Entity):
                     self.y = temp_y
 
             self.height = Player.HEIGHT_STANDARD
-            if self.collides_solid(temp_x, temp_y):
+            if collides_solid(self.container, self.at_point(temp_x, temp_y)):
                 self.height = Player.HEIGHT_CROUCH
             else:
                 self.state = Player.STATE_STANDARD
@@ -418,12 +487,11 @@ class Player(peachy.Entity):
                 self.change_state(Player.STATE_STANDARD)
 
         elif self.state == Player.STATE_LEDGEGRAB:
-
             # Climb up ledge
             if keypressed_up or keypressed_left or keypressed_right:
                 ledges = None
                 if keydown_up:
-                    try: 
+                    try:
                         ledges = solid_left(self, self.x, self.y)
                         assert ledges[0].y == self.y
                     except (AssertionError, IndexError):
@@ -437,8 +505,9 @@ class Player(peachy.Entity):
                     ledge = ledges[0]
                     assert ledge.y == self.y
 
-                    test = Rect(self.x, ledge.y - Player.HEIGHT_CROUCH,
-                                self.width, Player.HEIGHT_CROUCH)
+                    test = peachy.geo.Rect(
+                        self.x, ledge.y - Player.HEIGHT_CROUCH,
+                        self.width, Player.HEIGHT_CROUCH)
                     test.container = self.container
 
                     if test.x + test.width <= ledge.x:
@@ -446,7 +515,7 @@ class Player(peachy.Entity):
                     elif test.x >= ledge.x + ledge.width:
                         test.x = ledge.x + ledge.width - test.width
 
-                    if not test.collides_solid():
+                    if not collides_solid(self.container, test):
                         self.change_state(Player.STATE_CROUCHING)
                         self.x = test.x
                         self.y = test.y
@@ -480,20 +549,27 @@ class Player(peachy.Entity):
                 return
 
             test_x = temp_x + self.velocity_x
-            if not self.collides(block, test_x, self.y):
+            if not rect_rect(self.at_point(test_x, self.y), block):
                 self.change_state(Player.STATE_STANDARD)
                 return
 
             block_temp_x = block.x + self.velocity_x
-            if not block.collides_solid(block_temp_x, block.y):
+            if not collides_solid(self.container,
+                                  block.at_point(block_temp_x, block.y)):
                 block.x = block_temp_x
+
+        # GADGET
+        if self.state != Player.STATE_DEAD:
+            if keypressed_gadget and self.gadget.name:
+                self.gadget.use()
 
         # ADVANCE
         temp_x += self.velocity_x
         temp_y += self.velocity_y
 
         # LOCKED DOOR
-        lock = self.collides_group('locked-door', temp_x, temp_y)
+        lock = collides_group(
+            self.container, 'locked-door', self.at_point(temp_x, temp_y))
         if lock:
             lock = lock[0]
             if self.key_count > 0:
@@ -506,193 +582,3 @@ class Player(peachy.Entity):
             collision_resolution(self, temp_x, temp_y)
 
         self.gadget.update()
-
-
-# GADGETS
-
-
-class Gadget(object):
-
-    STATE_ACTIVE = 0
-    STATE_INACTIVE = 1
-    STATE_COOLDOWN = 2
-
-    def __init__(self, name):
-        self.name = name
-        self.timer = 0
-        self.state = Gadget.STATE_INACTIVE
-
-    def cancel(self):
-        return
-
-    def use(self):
-        if self.state == Gadget.STATE_INACTIVE:
-            self.state = Gadget.STATE_ACTIVE
-            self.timer = 60 * 3
-
-
-    def render(self):
-        return
-
-    def update(self):
-        return
-
-
-class StunBomb(Gadget):
-
-    NAME = 'STUN'
-    COOLDOWN = 60 * 2
-    DURATION = 60 * 0.25
-    MAX_RADIUS = 32
-
-    def __init__(self, player):
-        Gadget.__init__(self, StunBomb.CODE)
-        self.radius = 0
-        self.player = player
-
-    def cancel(self):
-        if self.state == Gadget.STATE_ACTIVE:
-            self.state = Gadget.STATE_COOLDOWN
-            self.timer = StunBomb.COOLDOWN
-
-    def use(self):
-        if self.state == Gadget.STATE_INACTIVE:
-            self.state = Gadget.STATE_ACTIVE
-            self.timer = StunBomb.DURATION
-            self.x = self.player.x + self.player.width / 2
-            self.y = self.player.y + self.player.height / 2
-
-    def render(self):
-        if self.state == Gadget.STATE_ACTIVE:
-            peachy.graphics.set_color(255, 255, 0, 64)
-            peachy.graphics.draw_circle(self.x - self.radius, self.y - self.radius, self.radius)
-
-    def update(self):
-        if self.timer > 0:
-            self.timer -= 1
-
-        if self.state == Gadget.STATE_ACTIVE:
-            self.radius = StunBomb.MAX_RADIUS * float(float(StunBomb.DURATION - self.timer) / StunBomb.DURATION)
-            self.radius = int(self.radius)
-
-            # Attempt to stun enemies
-            candidates = self.player.container.get_group('can-stun')
-            for entity in candidates:
-                if not entity.stunned and \
-                   entity.collides_circle((self.x, self.y, self.radius)):
-                    entity.GADGET_stun()
-
-            if self.timer <= 0:
-                self.state = Gadget.STATE_COOLDOWN
-                self.timer = StunBomb.COOLDOWN
-
-        elif self.state == Gadget.STATE_COOLDOWN:
-            if self.timer <= 0:
-                self.state = Gadget.STATE_INACTIVE
-                self.timer = 0
-
-
-class InvisibilityCloak(Gadget):
-
-    NAME = 'INVS'
-    COOLDOWN = 60 * 5
-    DURATION = 60 * 3
-
-    def __init__(self, player):
-        Gadget.__init__(self, InvisibilityCloak.NAME)
-        self.player = player
-
-    def cancel(self):
-        if self.state == Gadget.STATE_ACTIVE:
-            self.state = Gadget.STATE_COOLDOWN
-            self.timer = InvisibilityCloak.COOLDOWN
-
-    def use(self):
-        if self.state == Gadget.STATE_INACTIVE:
-            self.state = Gadget.STATE_ACTIVE
-            self.timer = InvisibilityCloak.DURATION
-            self.player.invisible = True
-
-    def render(self):
-        if self.state == Gadget.STATE_ACTIVE:
-            peachy.graphics.set_color(0, 255, 255, 32)
-            peachy.graphics.draw_circle(self.player.x - (self.player.width / 2) - 8, 
-                                        self.player.y - (self.player.height / 2) - 6, 16)
-
-    def cancel(self):
-        if self.state ==  Gadget.STATE_ACTIVE:
-            self.state = Gadget.STATE_COOLDOWN
-            self.timer = InvisibilityCloak.COOLDOWN
-            self.player.invisible = False
-
-    def update(self):
-        if self.timer > 0:
-            self.timer -= 1
-
-        if self.state == Gadget.STATE_ACTIVE:
-            if self.timer <= 0:
-                self.cancel()
-                # self.state = Gadget.STATE_COOLDOWN
-                # self.timer = InvisibilityCloak.COOLDOWN
-                # self.player.invisible = False
-
-        elif self.state == Gadget.STATE_COOLDOWN:
-            if self.timer <= 0:
-                self.state = Gadget.STATE_INACTIVE
-                self.timer = 0
-
-
-class TimeDisruptor(Gadget):
-
-    NAME = 'TIME'
-    COOLDOWN = 60 * 2
-    DURATION = 60 * 3
-    RADIUS = 32
-
-    def __init__(self, player):
-        Gadget.__init__(self, TimeDisruptor.NAME)
-        self.player = player
-
-    def use(self):
-        if self.state == Gadget.STATE_INACTIVE:
-            self.state = Gadget.STATE_ACTIVE
-            self.timer = TimeDisruptor.DURATION
-            self.x = self.player.x + self.player.width / 2 - TimeDisruptor.RADIUS
-            self.y = self.player.y + self.player.height / 2 - TimeDisruptor.RADIUS
-
-    def render(self):
-        if self.state == Gadget.STATE_ACTIVE:
-            peachy.graphics.set_color(255, 0, 255, 64)
-            peachy.graphics.draw_circle(self.x, self.y, TimeDisruptor.RADIUS)
-
-    def update(self):
-        if self.timer > 0:
-            self.timer -= 1
-
-        if self.state == Gadget.STATE_ACTIVE:
-            # Attempt to slow or revert slow
-            ents = self.player.container.get_group('can-slow')
-            for entity in ents:
-                if entity.collides_circle((self.x, self.y, TimeDisruptor.RADIUS)):
-                    if not entity.slowed:
-                        entity.GADGET_slow()
-                elif entity.slowed:
-                    entity.GADGET_revert()
-
-            # Change state (ACTIVE -> COOLDOWN)
-            # -> Go through each time manipulatable entity and make sure their
-            # state has been reverted
-            if self.timer <= 0:
-                ents = self.player.container.get_group('can-slow')
-                for entity in ents:
-                    if entity.slowed:
-                        entity.GADGET_revert()
-                self.state = TimeDisruptor.STATE_COOLDOWN
-                self.timer = TimeDisruptor.COOLDOWN
-
-        elif self.state == Gadget.STATE_COOLDOWN:
-            # Change state (COOLDOWN -> INACTIVE)
-            if self.timer <= 0:
-                self.state = TimeDisruptor.STATE_INACTIVE
-                self.timer = 0
-

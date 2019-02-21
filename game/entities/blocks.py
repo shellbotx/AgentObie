@@ -1,27 +1,28 @@
 import peachy
+import peachy.geo
+from game.config import GRAVITY, MAX_GRAVITY
 from game.utility import collision_resolution
 
-GRAVITY = 0.2
-MAX_GRAVITY = 9
 
-class PushBlock(peachy.Entity):
+class PushBlock(peachy.Entity, peachy.geo.Rect):
 
     def __init__(self, x, y):
-        peachy.Entity.__init__(self, x, y)
+        super(peachy.Entity).__init__()
+        super(peachy.geo.Rect).__init__(x, y, 8, 8)
         self.group = 'block liftable can-slow'
         self.solid = True
-        self.width = 8
-        self.height = 8
         self.slowed = False
+        self.order = 2
 
     def render(self):
+        # Placeholder rendering
         peachy.graphics.set_color(0, 255, 0)
         peachy.graphics.draw_rect(self.x, self.y, self.width, self.height)
 
     def update(self):
         temp_x = self.x
         temp_y = self.y
-        
+
         if self.velocity_y < MAX_GRAVITY:
             self.velocity_y += GRAVITY
 
@@ -43,4 +44,3 @@ class PushBlock(peachy.Entity):
 
     def GADGET_revert(self):
         self.slowed = False
-

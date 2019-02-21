@@ -1,0 +1,39 @@
+Programming
+  Dog  
+  FlashBang Gadget
+  Decoy Gadget
+  Water
+  Checkpoint
+  Pressure Plate
+  Pulley
+
+---
+
+Art
+  Sewer tileset
+  Dog
+  Key
+  Player - climb animation
+  Player - death animation
+  Soldier - idle animation
+
+---
+
+Bugs
+  Ledgegrab
+  Soldier view & AI
+
+---
+
+Todos
+  Pause animations on message
+  Pull blocks (on keypress) or design around it
+  Ladder platforms
+
+---
+  
+Marketing
+  itch.io devlog
+  indieDB devlog
+  showcrate.com devlog
+------------------------------

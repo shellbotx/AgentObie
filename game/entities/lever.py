@@ -1,18 +1,20 @@
 import peachy
+import peachy.geo
+
 
 class Lever(peachy.Entity):
-    
+
     def __init__(self, x, y, on_pull, lock):
-        peachy.Entity.__init__(self, x, y)
+        peachy.Entity.__init__(self)
+        peachy.geo.Rect.__init__(self, x, y, 10, 10)
         self.group = 'interact lever'
-        self.width = 10
-        self.height = 10
+        self.order = 2
         self.pulled = False
         self.on_pull = on_pull
         self.lock = lock
 
         self.sprite = peachy.graphics.splice(
-                peachy.fs.get_image('assets/img/lever.png'), 10, 10)
+            peachy.fs.get_image('assets/img/lever.png'), 10, 10)
 
     def render(self):
         if self.pulled:

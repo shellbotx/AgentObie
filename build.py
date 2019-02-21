@@ -6,29 +6,41 @@
 #
 # To build exe, python, pygame, and py2exe have to be installed. After
 # building exe none of this libraries are needed.
-#Please Note have a backup file in a different directory as if it crashes you 
-#will loose it all!(I lost 6 months of work because I did not do this)
+#
+# Please Note have a backup file in a different directory as if it crashes you
+# will loose it all!(I lost 6 months of work because I did not do this)
 
 try:
     from distutils.core import setup
-    import py2exe, pygame
+    import py2exe
+    import pygame
     from modulefinder import Module
-    import glob, fnmatch
-    import sys, os, shutil
+    import glob
+    import fnmatch
+    import sys
+    import os
+    import shutil
     import operator
-except ImportError, message:
-    raise SystemExit, "Unable to load module. %s" % message
+except ImportError as message:
+    raise SystemExit("Unable to load module. %s" % message)
 
-# Hack which fixes the pygame mixer and pygame font
-orig_is_system_DLL = py2exe.build_exe.isSystemDLL  # save the original before we edit it
+# Hack which fixes pygame mixer and pygame font
+
+# save the original before we edit it
+orig_is_system_DLL = py2exe.build_exe.isSystemDLL
+
+
 def is_system_DLL(pathname):
     # checks if the freetype and ogg dll files are being included
     if os.path.basename(pathname).lower() in ("libfreetype-6.dll", "libogg-0.dll", "sdl_ttf.dll"):
         return 0
     return orig_is_system_DLL(pathname)  # return original function
-py2exe.build_exe.isSystemDLL = is_system_DLL # override default function
 
-class pygame2exe(py2exe.build_exe.py2exe):  
+
+py2exe.build_exe.isSystemDLL = is_system_DLL  # override default function
+
+
+class pygame2exe(py2exe.build_exe.py2exe):
     # This hack makes sure that pygame default font is copied: no need to modify code for specifying default font
     def copy_extensions(self, extensions):
         # Get pygame default font
@@ -52,7 +64,7 @@ class BuildExe:
         self.project_url = "about:none"
 
         # Version of program
-        self.project_version = "0.3"
+        self.project_version = "0.4"
 
         # License of program
         self.license = ""
@@ -63,7 +75,7 @@ class BuildExe:
         self.copyright = "Copyright (c) 2015 shellbot"
 
         # Description
-        self.project_description = "Agent Obie alpha build version 3"
+        self.project_description = "Agent Obie alpha build v4"
 
         # Icon file (if None will use pygame default icon)
         self.icon_file = None
@@ -87,7 +99,7 @@ class BuildExe:
         # Dist directory
         self.dist_dir = 'dist'
 
-    # Code from DistUtils tutorial at http://wiki.python.org/main/DistUtils/Tutorial
+    # Code from DistUtils tut @ http://wiki.python.org/main/DistUtils/Tutorial
     # Originally borrowed from wxPython's setup and config files
     def opj(self, *args):
         path = os.path.join(*args)
@@ -125,7 +137,7 @@ class BuildExe:
             shutil.rmtree(self.dist_dir)
 
         # Use the default pygame icon, if none given
-        if self.icon_file == None:
+        if self.icon_file is None:
             path = os.path.split(pygame.__file__)[0]
             self.icon_file = os.path.join(path, 'pygame.ico')
 
@@ -135,39 +147,47 @@ class BuildExe:
             if os.path.isdir(data):
                 extra_datas.extend(self.find_data_files(data, '*'))
             else:
-                extra_data.extend(('.', [data]))
+                extra_datas.extend(('.', [data]))
 
         setup(
-            cmdclass = {'py2exe': pygame2exe},
-            version = self.project_version,
-            description = self.project_description,
-            name = self.project_name,
-            url = self.project_url,
-            author = self.author_name,
-            author_email = self.author_email,
-            license = self.license,
+            cmdclass={'py2exe': pygame2exe},
+            version=self.project_version,
+            description=self.project_description,
+            name=self.project_name,
+            url=self.project_url,
+            author=self.author_name,
+            author_email=self.author_email,
+            license=self.license,
 
             # Targets to build
-            windows = [{
+            windows=[{
                 'script': self.script,
                 'icon_resources': [(0, self.icon_file)],
                 'copyright': self.copyright
             }],
-            options = { 'py2exe': {'optimize': 2, 'bundle_files': 1, 'compressed': True,
-                        'excludes': self.exclude_modules, 'packages': self.extra_modules,
-                        'dll_excludes': self.exclude_dll, 'includes':self.extra_scripts}
+            options={
+                'py2exe': {
+                    'optimize': 2,
+                    'bundle_files': 1,
+                    'compressed': True,
+                    'excludes': self.exclude_modules,
+                    'packages': self.extra_modules,
+                    'dll_excludes': self.exclude_dll,
+                    'includes': self.extra_scripts
+                }
             },
-            zipfile = self.zipfile_name,
-            data_files = extra_datas,
-            dist_dir = self.dist_dir
+            zipfile=self.zipfile_name,
+            data_files=extra_datas,
+            dist_dir=self.dist_dir
         )
 
         # Clean up build dir
         if os.path.isdir('build'):
             shutil.rmtree('build')
 
+
 if __name__ == '__main__':
     if operator.lt(len(sys.argv), 2):
         sys.argv.append('py2exe')
     BuildExe().run()  # Run generation
-    raw_input("Press 'ENTER' to exit")  # 
+    input("Press 'ENTER' to exit")  #

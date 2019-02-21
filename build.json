@@ -1,0 +1,17 @@
+{
+    "name": "Agent Obie",
+    "author": {
+        "name": "shellbot",
+        "email": "shellbot@studioshellbot.com",
+        "copyright": "",
+    },
+    "short_description": "Peachy build example",
+    "long_description": "",
+    "assets_directory": "game/assets",
+    "dist_directory": "dist",
+    "entry_script": "main.py",
+    "icon_file": "",
+    "license": "MIT",
+    "version": "1.0",
+    "repo_name": ""
+}

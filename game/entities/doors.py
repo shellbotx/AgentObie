@@ -1,12 +1,13 @@
 import peachy
+import peachy.geo
 
-class Door(peachy.Entity):
+
+class Door(peachy.Entity, peachy.geo.Rect):
 
     def __init__(self, x, y, link):
-        peachy.Entity.__init__(self, x, y)
+        peachy.Entity.__init__(self)
+        peachy.geo.Rect.__init__(self, x, y, 16, 12)
         self.group = 'interact door'
-        self.width = 16
-        self.height = 12
 
         self.link = link
 
@@ -15,14 +16,13 @@ class Door(peachy.Entity):
         peachy.graphics.draw_rect(self.x, self.y, self.width, self.height)
 
 
-class LockedDoor(peachy.Entity):
-    
+class LockedDoor(peachy.Entity, peachy.geo.Rect):
+
     def __init__(self, x, y, width, height, tag):
-        peachy.Entity.__init__(self, x, y)
+        peachy.Entity.__init__(self)
+        peachy.geo.Rect.__init__(self, x, y, width, height)
         self.group = 'locked-door'
         self.solid = True
-        self.width = width
-        self.height = height
         self.tag = tag
 
     def render(self):
@@ -30,13 +30,12 @@ class LockedDoor(peachy.Entity):
         peachy.graphics.draw_rect(self.x, self.y, self.width, self.height)
 
 
-class RetractableDoor(peachy.Entity):
+class RetractableDoor(peachy.Entity, peachy.geo.Rect):
     def __init__(self, x, y, width, height):
-        peachy.Entity.__init__(self, x, y)
+        peachy.Entity.__init__(self)
+        peachy.geo.Rect.__init__(self, x, y, width, height)
         self.group = 'retract'
         self.solid = True
-        self.width = width
-        self.height = height
 
     def render(self):
         peachy.graphics.set_color(255, 255, 0)

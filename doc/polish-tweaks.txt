@@ -1,0 +1,20 @@
+
+
+ - particles on checkpoint
+ - water inside
+ - subtle boat sway
+ - dust trail
+ - footstep sound effect
+ - transition to level two
+
+ - blur and lighting
+ - swaying lights
+ - rain outside
+ - creaking inside
+ - mess hall
+ - wood furniture
+ - rats (inside ship, and sewer), they just run, they dont hurt nobody
+ - dripping tiles inside
+
+
+ - FILTER

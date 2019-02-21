@@ -1,0 +1,82 @@
+{
+    "resources": [
+        {
+            "type": "image",
+            "name": "ObieSpritesheet",
+            "path": "img/obie.png"
+        },
+        {
+            "type": "image",
+            "name": "SoldierSpritesheet",
+            "path": "img/soldier.png"
+        },
+
+        {
+            "type": "sound",
+            "name": "FootstepSound",
+            "path": "snd/footsteps.wav"
+        },
+        {
+            "type": "font",
+            "name": "SourceCodePro@12",
+            "path": "SourceCodePro.otf",
+            "size": 12
+        },
+        {
+            "type": "font",
+            "name": "SourceCodePro@16",
+            "path": "SourceCodePro.otf",
+            "size": 16
+        },
+        {
+            "type": "font",
+            "name": "DefaultFont",
+            "path": "FiraMono-Medium.otf",
+            "size": 16,
+            "italic": true
+        },
+        {
+            "type": "image",
+            "name": "PierForeground_Clouds",
+            "path": "img/pier_fg_clouds.png"
+        },
+        {
+            "type": "image",
+            "name": "PierForeground_Water",
+            "path": "img/pier_fg_water.png"
+        },
+        {
+            "type": "image",
+            "name": "PierBackground",
+            "path": "img/pier_bg.png"
+        },
+        {
+            "type": "image",
+            "name": "PierBackground_Clouds",
+            "path": "img/pier_bg_clouds.png"
+        }
+    ],
+
+    "bundles": [
+        {
+            "name": "BaseResources",
+            "resources": [
+                "ObieSpritesheet",
+                "SoldierSpritesheet",
+                "FootstepSound",
+                "DefaultFont",
+                "SourceCodePro@12",
+                "SourceCodePro@16"
+            ]
+        },
+        {
+            "name": "PierResources",
+            "resources": [
+                "PierBackground",
+                "PierBackground_Clouds",
+                "PierForeground_Clouds",
+                "PierForeground_Water"
+            ]
+        }
+    ]
+}

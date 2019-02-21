@@ -1,0 +1,13 @@
+GENERAL
+. horizontal rope
+
+PIER
+. background 2nd pass
+. boat motion
+. bloom
+. seagulls
+. sunlight
+. shade
+. ship bounce
+. tileset depth
+. water (lighting, reverse, waves)

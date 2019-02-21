@@ -1,12 +1,13 @@
 import peachy
+import peachy.geo
+
 
 class HidingSpot(peachy.Entity):
 
     def __init__(self, x, y, width, height):
-        peachy.Entity.__init__(self, x, y)
+        peachy.Entity.__init__(self)
+        peachy.geo.Rect.__init__(x, y, width, height)
         self.group = 'hiding-spot interact'
-        self.width = width
-        self.height = height
         self.visible = False
 
     def render(self):
